@@ -58,6 +58,20 @@ PRD produk tersedia di [`document/prd/PRD-Aplikasi-Buku-Tamu-PTA-Manado.md`](doc
 - `FILESYSTEM_DISK=local` memakai `storage/app/private`; file pada disk ini tidak boleh dihubungkan ke direktori public.
 - `.env` tidak boleh di-commit. Hanya `.env.example` dengan placeholder yang menjadi dokumentasi konfigurasi.
 
+## Akun admin development
+
+Isi `DEV_ADMIN_NAME`, `DEV_ADMIN_EMAIL`, dan `DEV_ADMIN_PASSWORD` hanya pada `.env` lokal, lalu jalankan:
+
+```bash
+php artisan db:seed --class=DevelopmentAdminSeeder
+```
+
+Seeder hanya berjalan pada environment `local` atau `testing`, bersifat idempotent berdasarkan email, dan menyimpan password melalui hasher Laravel. Jangan gunakan credential development pada production.
+
+Halaman login admin tersedia di `http://localhost:8000/login`. Area admin berada di `http://localhost:8000/admin` dan hanya dapat diakses oleh user dengan role `admin` serta status aktif.
+
+Untuk deployment HTTPS, tetapkan `SESSION_SECURE_COOKIE=true`. Cookie session menggunakan `HttpOnly` dan `SameSite=Lax`; seluruh form autentikasi dilindungi CSRF.
+
 ## Quality checks
 
 Setelah dependency PHP dan frontend terpasang, jalankan seluruh test, formatter check, static analysis, dan production asset build dengan satu perintah:
