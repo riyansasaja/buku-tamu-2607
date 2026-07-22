@@ -72,6 +72,18 @@ Halaman login admin tersedia di `http://localhost:8000/login`. Area admin berada
 
 Untuk deployment HTTPS, tetapkan `SESSION_SECURE_COOKIE=true`. Cookie session menggunakan `HttpOnly` dan `SameSite=Lax`; seluruh form autentikasi dilindungi CSRF.
 
+## Master pegawai
+
+Admin mengelola tiga data master dari area admin:
+
+- `/admin/work-units` untuk unit kerja
+- `/admin/positions` untuk jabatan
+- `/admin/employees` untuk pegawai
+
+Tambahkan unit kerja dan jabatan aktif sebelum membuat pegawai. Pegawai menyimpan foreign key ke kedua referensi tersebut; referensi dan pegawai tidak memiliki aksi hapus permanen, melainkan dapat dinonaktifkan agar relasi historis tetap utuh. Hanya pegawai aktif yang disediakan oleh scope `Employee::active()` untuk alur tujuan kunjungan berikutnya.
+
+Kontak notifikasi pegawai disimpan menggunakan encrypted cast Laravel, tidak ditampilkan pada daftar, dan disembunyikan dari serialisasi model secara default.
+
 ## Quality checks
 
 Setelah dependency PHP dan frontend terpasang, jalankan seluruh test, formatter check, static analysis, dan production asset build dengan satu perintah:

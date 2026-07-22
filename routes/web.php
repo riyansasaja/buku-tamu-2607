@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\EmployeeController;
+use App\Http\Controllers\Admin\PositionController;
+use App\Http\Controllers\Admin\WorkUnitController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,5 +18,15 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware(['auth', 'admin.active'])->group(function (): void {
     Route::get('/admin', DashboardController::class)->name('admin.dashboard');
+    Route::prefix('admin')->name('admin.')->group(function (): void {
+        Route::resource('employees', EmployeeController::class)->except(['show', 'destroy']);
+        Route::patch('employees/{employee}/status', [EmployeeController::class, 'status'])->name('employees.status');
+
+        Route::resource('work-units', WorkUnitController::class)->except(['show', 'destroy'])->parameters(['work-units' => 'work_unit']);
+        Route::patch('work-units/{work_unit}/status', [WorkUnitController::class, 'status'])->name('work-units.status');
+
+        Route::resource('positions', PositionController::class)->except(['show', 'destroy']);
+        Route::patch('positions/{position}/status', [PositionController::class, 'status'])->name('positions.status');
+    });
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });
