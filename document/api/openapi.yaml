@@ -1,0 +1,238 @@
+openapi: 3.1.0
+info:
+  title: API Buku Tamu PTA Manado
+  version: 1.0.0
+  description: API MVP untuk client mobile atau kiosk pencatatan tamu.
+servers:
+  - url: /api/v1
+security:
+  - ClientKey: []
+paths:
+  /employees:
+    get:
+      summary: Daftar pegawai aktif
+      operationId: listEmployees
+      parameters:
+        - { name: q, in: query, schema: { type: string }, description: Cari nama, NIP, unit kerja, atau jabatan. }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Daftar pegawai terurut berdasarkan nama.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Employee' } }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /visits:
+    post:
+      summary: Catat kedatangan tamu
+      operationId: createVisit
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [guest_name, address, guest_whatsapp, employee_id, visit_purpose, photo]
+              properties:
+                guest_name: { type: string, minLength: 2, maxLength: 150, example: Budi Santoso }
+                address: { type: string, minLength: 5, maxLength: 500, example: Manado }
+                guest_whatsapp: { type: string, pattern: '^[1-9][0-9]{8,14}$', example: '6281234567890', description: Nomor dinormalisasi ke format internasional dan tidak dikembalikan pada response. }
+                employee_id: { type: integer, example: 1 }
+                visit_purpose: { type: string, minLength: 3, maxLength: 1000, example: Konsultasi layanan }
+                photo: { type: string, format: binary, description: JPEG, PNG, atau WebP; maksimum 5 MB. }
+      responses:
+        '201': { $ref: '#/components/responses/VisitCreated' }
+        '200':
+          description: Permintaan identik diputar ulang tanpa membuat duplikat. Header Idempotency-Replayed bernilai true.
+          headers:
+            Idempotency-Replayed: { schema: { type: string, const: 'true' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: Idempotency-Key pernah digunakan dengan payload berbeda.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '422':
+          description: Data tidak valid atau pegawai tidak aktif.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ValidationError' } } }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /visits/{visit}/photo:
+    get:
+      summary: Ambil foto tamu melalui URL bertanda tangan
+      operationId: showVisitPhoto
+      security: []
+      parameters:
+        - { name: visit, in: path, required: true, schema: { type: integer } }
+        - { name: expires, in: query, required: true, schema: { type: integer } }
+        - { name: signature, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Berkas foto privat. URL berlaku selama sepuluh menit.
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        '403': { description: Tanda tangan tidak valid atau kedaluwarsa, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Kunjungan atau foto tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /decisions/{token}:
+    get:
+      summary: Tampilkan detail satu tamu melalui token keputusan
+      operationId: showDecisionPage
+      security: []
+      servers:
+        - url: /
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string, minLength: 64, maxLength: 64, pattern: '^[A-Za-z0-9]+$' }
+      responses:
+        '200':
+          description: Halaman HTML detail tamu untuk token aktif dan kunjungan pending.
+          content: { text/html: { schema: { type: string } } }
+        '404':
+          description: Halaman generik untuk token salah, dicabut, dipakai, atau kunjungan non-pending.
+          content: { text/html: { schema: { type: string } } }
+        '429':
+          description: Batas akses link terlampaui.
+          content: { text/html: { schema: { type: string } } }
+    post:
+      summary: Simpan keputusan menerima atau menolak tamu
+      operationId: storeVisitDecision
+      security: []
+      servers:
+        - url: /
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string, minLength: 64, maxLength: 64, pattern: '^[A-Za-z0-9]+$' }
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [accepted, rejected] }
+                decision_reason: { type: string, minLength: 3, maxLength: 500, description: Wajib hanya untuk rejected. }
+      responses:
+        '200':
+          description: Halaman konfirmasi; keputusan dan invalidasi token tersimpan atomik.
+          content: { text/html: { schema: { type: string } } }
+        '302': { description: Kembali ke halaman detail ketika validasi form gagal. }
+        '404':
+          description: Token salah/tidak aktif atau kunjungan sudah diputuskan.
+          content: { text/html: { schema: { type: string } } }
+        '419': { description: Token CSRF tidak valid. }
+        '429':
+          description: Batas percobaan keputusan terlampaui.
+          content: { text/html: { schema: { type: string } } }
+components:
+  securitySchemes:
+    ClientKey:
+      type: apiKey
+      in: header
+      name: X-Client-Key
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, maxLength: 100, pattern: '^[A-Za-z0-9._:-]+$' }
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      schema: { type: string, maxLength: 100 }
+  schemas:
+    Employee:
+      type: object
+      required: [id, employee_no, name, work_unit, position]
+      properties:
+        id: { type: integer }
+        employee_no: { type: [string, 'null'] }
+        name: { type: string }
+        work_unit: { $ref: '#/components/schemas/MasterData' }
+        position: { $ref: '#/components/schemas/MasterData' }
+    MasterData:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+    Visit:
+      type: object
+      required: [id, visit_number, guest_name, address, visit_purpose, status, arrived_at, employee, photo_url]
+      properties:
+        id: { type: integer }
+        visit_number: { type: string, example: BTM-20260723-A1B2C3D4 }
+        guest_name: { type: string }
+        address: { type: string }
+        visit_purpose: { type: string }
+        status: { type: string, enum: [pending, accepted, rejected] }
+        decision_reason: { type: [string, 'null'], maxLength: 500 }
+        decided_at: { type: [string, 'null'], format: date-time }
+        arrived_at: { type: string, format: date-time }
+        employee: { $ref: '#/components/schemas/Employee' }
+        photo_url: { type: string, format: uri }
+    VisitResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Visit' }
+        meta:
+          type: object
+          required: [request_id, idempotency_replayed]
+          properties:
+            request_id: { type: string }
+            idempotency_replayed: { type: boolean }
+    PaginationMeta:
+      type: object
+      required: [current_page, last_page, per_page, total, request_id]
+      properties:
+        current_page: { type: integer }
+        last_page: { type: integer }
+        per_page: { type: integer }
+        total: { type: integer }
+        request_id: { type: string }
+    Error:
+      type: object
+      required: [message, request_id]
+      properties:
+        message: { type: string }
+        request_id: { type: string }
+    ValidationError:
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          required: [errors]
+          properties:
+            errors:
+              type: object
+              additionalProperties: { type: array, items: { type: string } }
+  responses:
+    VisitCreated:
+      description: Kunjungan berhasil dicatat dengan status pending.
+      headers:
+        Idempotency-Replayed: { schema: { type: string, const: 'false' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/VisitResponse' } } }
+    Unauthorized:
+      description: X-Client-Key tidak valid.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    TooManyRequests:
+      description: Batas permintaan terlampaui.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

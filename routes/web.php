@@ -5,11 +5,16 @@ use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\PositionController;
 use App\Http\Controllers\Admin\WorkUnitController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\DecisionPageController;
+use App\Http\Controllers\StoreVisitDecisionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
+
+Route::get('/decisions/{token}', DecisionPageController::class)->where('token', '[A-Za-z0-9]{64}')->name('decisions.show');
+Route::post('/decisions/{token}', StoreVisitDecisionController::class)->where('token', '[A-Za-z0-9]{64}')->name('decisions.store');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');

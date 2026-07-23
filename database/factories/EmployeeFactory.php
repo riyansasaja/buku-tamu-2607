@@ -18,7 +18,7 @@ class EmployeeFactory extends Factory
             'position_id' => Position::factory(),
             'employee_no' => fake()->boolean(80) ? fake()->unique()->numerify('198###########') : null,
             'name' => fake()->name(),
-            'notification_contact' => fake()->optional()->phoneNumber(),
+            'notification_contact' => '628'.fake()->numerify('##########'),
             'is_active' => true,
         ];
     }

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['user_id', 'work_unit_id', 'position_id', 'employee_no', 'name', 'notification_contact', 'is_active'])]
 #[Hidden(['notification_contact'])]
@@ -35,10 +36,22 @@ class Employee extends Model
         return $this->belongsTo(Position::class);
     }
 
+    /** @return HasMany<Visit, $this> */
+    public function visits(): HasMany
+    {
+        return $this->hasMany(Visit::class);
+    }
+
     /** @param Builder<Employee> $query */
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    /** @param Builder<Employee> $query */
+    public function scopeAvailableForVisits(Builder $query): void
+    {
+        $query->where('is_active', true)->whereNotNull('notification_contact');
     }
 
     /** @return array<string, string> */

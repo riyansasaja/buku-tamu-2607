@@ -92,16 +92,16 @@ class EmployeeManagementTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.employees.store'), $payload)
             ->assertRedirect(route('admin.employees.index'));
-        $this->actingAs($admin)->post(route('admin.employees.store'), [...$payload, 'name' => 'Dina Manoppo', 'notification_contact' => ''])
+        $this->actingAs($admin)->post(route('admin.employees.store'), [...$payload, 'name' => 'Dina Manoppo', 'notification_contact' => '', 'is_active' => false])
             ->assertRedirect(route('admin.employees.index'));
 
         $employee = Employee::query()->where('name', 'Rina Manoppo')->firstOrFail();
         $rawContact = DB::table('employees')->where('id', $employee->id)->value('notification_contact');
 
         $this->assertNull($employee->employee_no);
-        $this->assertSame('081234567890', $employee->notification_contact);
+        $this->assertSame('6281234567890', $employee->notification_contact);
         $this->assertIsString($rawContact);
-        $this->assertNotSame('081234567890', $rawContact);
+        $this->assertNotSame('6281234567890', $rawContact);
         $this->assertArrayNotHasKey('notification_contact', $employee->toArray());
         $this->assertSame(2, Employee::query()->whereNull('employee_no')->count());
     }
@@ -117,7 +117,7 @@ class EmployeeManagementTest extends TestCase
             'name' => 'Nama Diperbarui',
             'work_unit_id' => $employee->work_unit_id,
             'position_id' => $employee->position_id,
-            'notification_contact' => null,
+            'notification_contact' => '081234567890',
             'is_active' => true,
         ];
 
@@ -141,7 +141,7 @@ class EmployeeManagementTest extends TestCase
             'employee_no' => null,
             'work_unit_id' => $inactiveWorkUnit->id,
             'position_id' => $inactivePosition->id,
-            'notification_contact' => null,
+            'notification_contact' => '081234567890',
             'is_active' => true,
         ])->assertSessionHasErrors(['work_unit_id', 'position_id']);
 
@@ -167,7 +167,7 @@ class EmployeeManagementTest extends TestCase
             'name' => 'Pegawai Historis Diperbarui',
             'work_unit_id' => $workUnit->id,
             'position_id' => $position->id,
-            'notification_contact' => null,
+            'notification_contact' => $employee->notification_contact,
             'is_active' => true,
         ])->assertRedirect(route('admin.employees.index'));
 
@@ -188,6 +188,35 @@ class EmployeeManagementTest extends TestCase
 
         $this->assertDatabaseHas('employees', ['id' => $active->id, 'is_active' => false]);
         $this->assertSame(0, Employee::query()->active()->count());
+    }
+
+    public function test_active_employee_requires_valid_whatsapp_and_inactive_employee_may_be_saved_without_it(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $workUnit = WorkUnit::factory()->create();
+        $position = Position::factory()->create();
+        $base = [
+            'employee_no' => null,
+            'work_unit_id' => $workUnit->id,
+            'position_id' => $position->id,
+        ];
+
+        $this->actingAs($admin)->post(route('admin.employees.store'), [
+            ...$base, 'name' => 'Tanpa Nomor', 'notification_contact' => '', 'is_active' => true,
+        ])->assertSessionHasErrors('notification_contact');
+
+        $this->actingAs($admin)->post(route('admin.employees.store'), [
+            ...$base, 'name' => 'Nomor Salah', 'notification_contact' => 'abc', 'is_active' => true,
+        ])->assertSessionHasErrors('notification_contact');
+
+        $this->actingAs($admin)->post(route('admin.employees.store'), [
+            ...$base, 'name' => 'Draft Pegawai', 'notification_contact' => '', 'is_active' => false,
+        ])->assertRedirect(route('admin.employees.index'));
+
+        $draft = Employee::query()->where('name', 'Draft Pegawai')->firstOrFail();
+        $this->actingAs($admin)->patch(route('admin.employees.status', $draft), ['is_active' => true])
+            ->assertSessionHasErrors('is_active');
+        $this->assertFalse($draft->fresh()->is_active);
     }
 
     public function test_employee_list_supports_search_status_sorting_and_pagination(): void

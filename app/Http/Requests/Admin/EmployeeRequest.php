@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\Employee;
+use App\Support\WhatsAppNumber;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -47,7 +48,17 @@ class EmployeeRequest extends FormRequest
                         ->when($currentPositionId, fn (Builder $query): Builder => $query->orWhere('id', $currentPositionId)),
                 ),
             ],
-            'notification_contact' => ['nullable', 'string', 'max:100'],
+            'notification_contact' => [
+                Rule::requiredIf($this->boolean('is_active')),
+                'nullable',
+                'string',
+                'max:30',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if ($value !== null && ! WhatsAppNumber::isValid((string) $value)) {
+                        $fail('Nomor WhatsApp harus valid, misalnya 081234567890 atau 6281234567890.');
+                    }
+                },
+            ],
             'is_active' => ['required', 'boolean'],
         ];
     }
@@ -57,7 +68,7 @@ class EmployeeRequest extends FormRequest
         $this->merge([
             'employee_no' => $this->nullableTrimmed('employee_no'),
             'name' => trim((string) $this->input('name')),
-            'notification_contact' => $this->nullableTrimmed('notification_contact'),
+            'notification_contact' => WhatsAppNumber::normalize($this->nullableTrimmed('notification_contact')),
         ]);
     }
 
@@ -68,7 +79,7 @@ class EmployeeRequest extends FormRequest
             'name' => 'nama pegawai',
             'work_unit_id' => 'unit kerja',
             'position_id' => 'jabatan',
-            'notification_contact' => 'kontak notifikasi',
+            'notification_contact' => 'nomor WhatsApp',
             'is_active' => 'status aktif',
         ];
     }

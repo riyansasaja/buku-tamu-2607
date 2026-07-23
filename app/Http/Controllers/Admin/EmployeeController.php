@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\EmployeeRequest;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\WorkUnit;
+use App\Support\WhatsAppNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -89,6 +90,9 @@ class EmployeeController extends Controller
     {
         $this->authorize('update', $employee);
         $validated = $request->validate(['is_active' => ['required', 'boolean']]);
+        if ($validated['is_active'] && ! WhatsAppNumber::isValid($employee->notification_contact)) {
+            return back()->withErrors(['is_active' => 'Pegawai harus memiliki nomor WhatsApp valid sebelum diaktifkan.']);
+        }
         $employee->update(['is_active' => $validated['is_active']]);
 
         return back()->with('success', 'Status pegawai berhasil diperbarui.');

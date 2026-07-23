@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Status dokumen | Draft v1.0 |
+| Status dokumen | Draft v1.2 — alur WhatsApp dan survei dikonfirmasi |
 | Tanggal penyusunan | 22 Juli 2026 |
 | Pemilik produk | PTA Manado |
 | Target MVP | 5 Agustus 2026 |
@@ -22,15 +22,16 @@ PTA Manado membutuhkan pencatatan terpusat untuk mendokumentasikan tamu yang dat
 
 #### Proposed Solution
 
-Membangun aplikasi buku tamu single-tenant untuk satu kantor, terdiri dari REST API Laravel bagi client mobile dan web admin responsif. Sistem mencatat kunjungan, mengirim notifikasi kepada pegawai tujuan melalui push notification atau WhatsApp, memfasilitasi verifikasi kunjungan, mengelola admin dan pegawai, menampilkan dashboard, serta menghasilkan laporan PDF.
+Membangun aplikasi buku tamu single-tenant untuk satu kantor, terdiri dari REST API Laravel untuk aplikasi kiosk pada tablet, halaman keputusan terbatas bagi pegawai, halaman survei terbatas bagi tamu, dan web admin responsif. Sistem mencatat kunjungan beserta nomor WhatsApp tamu, mengirim pemberitahuan melalui Fonnte API kepada pegawai tujuan, memfasilitasi keputusan melalui tautan sekali pakai, mengirim hasil keputusan kepada petugas, lalu mengirim survei kepuasan sekali pakai kepada tamu tiga jam setelah kunjungan diterima.
 
 Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfigurasi terpisah; satu instalasi hanya melayani satu kantor dan tidak memerlukan fitur multi-tenant.
 
 #### Success Criteria
 
-- 100% kunjungan yang berhasil dikirim melalui client tersimpan dengan nama, alamat, pegawai tujuan, maksud kedatangan, foto, waktu kunjungan, dan status awal.
-- Dashboard dan laporan menampilkan jumlah total, diterima, ditolak, dan menunggu dengan hasil yang sama dengan data kunjungan pada database.
+- 100% kunjungan yang berhasil dikirim melalui client tersimpan dengan nama, alamat, nomor WhatsApp tamu, pegawai tujuan, maksud kedatangan, foto, waktu kunjungan, dan status awal.
+- Dashboard dan laporan menampilkan jumlah total, diterima, ditolak, dan belum diputuskan (`pending`) dengan hasil yang sama dengan data kunjungan pada database.
 - Sekurang-kurangnya 95% pekerjaan pengiriman notifikasi diproses oleh antrean dalam waktu 60 detik setelah kunjungan tersimpan, diukur dari log aplikasi; keberhasilan sampai ke perangkat bergantung pada penyedia eksternal.
+- 100% kunjungan yang diterima menjadwalkan satu survei untuk dikirim tiga jam setelah waktu keputusan, tanpa mengirim survei kepada kunjungan yang ditolak.
 - Sekurang-kurangnya 95% permintaan API non-unggah selesai dalam waktu kurang dari 500 ms pada persentil ke-95, dengan beban acuan 50 pengguna bersamaan dan maksimum 100.000 data kunjungan.
 - MVP dapat diuji oleh pengguna pada 5 Agustus 2026 dan versi operasional dapat digunakan pada 22 September 2026.
 
@@ -49,21 +50,26 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 
 | Persona | Kebutuhan utama | Hak akses |
 |---|---|---|
-| Tamu/petugas penerima tamu | Mencatat kunjungan secara cepat dan benar | Melihat daftar pegawai aktif dan membuat kunjungan melalui client mobile |
-| Pegawai tujuan | Mengetahui kedatangan dan memberi keputusan | Melihat kunjungan yang ditujukan kepadanya serta memilih menerima, menolak, atau menunggu |
+| Tamu | Mencatat kunjungan dan memberi umpan balik pelayanan | Mengisi data pada tablet, lalu mengisi satu survei kepuasan dari tautan WhatsApp setelah kunjungan diterima |
+| Petugas penerima tamu | Mengetahui hasil keputusan agar dapat mengarahkan tamu | Menerima pemberitahuan hasil keputusan melalui WhatsApp kantor |
+| Pegawai tujuan | Mengetahui kedatangan dan memberi keputusan tanpa memasang aplikasi | Membuka tautan rahasia dari WhatsApp, melihat satu kunjungan, lalu menerima atau menolak |
 | Admin | Mengawasi kunjungan dan mengelola data master | Dashboard, data kunjungan, laporan, user admin, dan pegawai |
 
 #### User Flow
 
 1. Client mengambil daftar pegawai aktif dari API.
-2. Tamu atau petugas mengisi nama, alamat, pegawai tujuan, maksud kedatangan, dan foto.
+2. Tamu mengisi nama, alamat, nomor WhatsApp, pegawai tujuan, maksud kedatangan, dan foto.
 3. API memvalidasi input, menyimpan foto secara privat, dan menyimpan kunjungan dengan status `pending`.
-4. API segera memberi respons sukses dan memasukkan pekerjaan notifikasi ke antrean.
-5. Sistem mengirim push notification atau WhatsApp kepada pegawai tujuan dan mencatat hasil percobaan.
-6. Pegawai membuka daftar kunjungan yang ditujukan kepadanya.
-7. Pegawai memilih `accepted`, `rejected`, atau `waiting`. Alasan wajib diisi untuk status `rejected` dan `waiting`; alasan untuk `accepted` bersifat opsional.
-8. Sistem mencatat keputusan, alasan, identitas pemutus, dan waktu keputusan.
-9. Admin memantau agregat di dashboard, menelusuri data, dan mengekspor laporan PDF.
+4. API segera memberi respons sukses dan memasukkan pekerjaan notifikasi pegawai ke antrean.
+5. Sistem membuat tautan keputusan dengan token acak yang hanya disimpan dalam bentuk hash, lalu mengirim nama, alamat, maksud kedatangan, dan tautan tersebut ke nomor WhatsApp pegawai melalui Fonnte API.
+6. Pegawai membuka tautan dan melihat satu halaman detail tamu tanpa login akun.
+7. Selama status masih `pending`, pegawai memilih `accepted` atau `rejected`; alasan wajib diisi untuk penolakan.
+8. Sistem menyimpan keputusan secara atomik. Setelah keputusan tersimpan, token tidak dapat digunakan kembali dan halaman keputusan tidak lagi menampilkan data tamu.
+9. Sistem mengantrekan WhatsApp hasil keputusan kepada petugas penerima tamu. Pesan penerimaan berisi arahan tindak lanjut; pesan penolakan menyertakan alasan.
+10. Untuk kunjungan `accepted`, sistem menjadwalkan pengiriman WhatsApp survei kepada tamu tepat tiga jam setelah waktu keputusan. Kunjungan `rejected` tidak menerima survei.
+11. Tamu membuka tautan survei sekali pakai, memilih rating bintang 1–5, dan dapat mengisi komentar/saran.
+12. Setelah respons tersimpan, token survei tidak dapat digunakan kembali dan halaman tidak lagi menerima jawaban.
+13. Admin memantau agregat di dashboard, menelusuri data, dan mengekspor laporan PDF.
 
 #### User Stories & Acceptance Criteria
 
@@ -73,14 +79,30 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 
 **Acceptance Criteria:**
 
-- Form/API menerima `guest_name`, `address`, `employee_id`, `visit_purpose`, dan `photo`.
+- Form/API menerima `guest_name`, `address`, `guest_whatsapp`, `employee_id`, `visit_purpose`, dan `photo`.
 - Nama terdiri dari 2–150 karakter; alamat 5–500 karakter; maksud kedatangan 3–1.000 karakter.
 - Pegawai tujuan harus ada dan berstatus aktif.
+- Nomor WhatsApp tamu wajib, dinormalisasi ke format internasional yang diterima Fonnte, dan harus valid secara struktur.
 - Foto wajib berformat JPEG, PNG, atau WebP dan berukuran maksimum 5 MB.
 - Data valid disimpan dengan ID unik, nomor kunjungan unik, waktu server, dan status `pending`.
 - API merespons HTTP `201` beserta data ringkas kunjungan, tanpa menunggu pengiriman notifikasi selesai.
 - Input tidak valid merespons HTTP `422` dengan pesan kesalahan per field dan tidak membuat kunjungan parsial.
 - Foto tidak tersedia melalui URL publik permanen tanpa otorisasi.
+
+##### US-01A — Mengisi survei kepuasan
+
+**User Story:** Sebagai tamu yang telah diterima, saya ingin menerima dan mengisi survei singkat agar dapat memberikan penilaian terhadap pelayanan.
+
+**Acceptance Criteria:**
+
+- Hanya kunjungan berstatus `accepted` yang menjadwalkan satu pengiriman survei, tepat tiga jam setelah `decided_at`.
+- WhatsApp survei dikirim melalui Fonnte API ke `guest_whatsapp` yang dicatat saat registrasi.
+- Tautan memakai token acak berentropi tinggi yang terikat pada satu kunjungan; database hanya menyimpan hash token.
+- Halaman survei meminta rating bintang integer 1–5 dan menyediakan komentar/saran opsional maksimum 1.000 karakter.
+- Satu kunjungan hanya dapat menyimpan satu respons survei.
+- Setelah respons pertama berhasil disimpan, tautan tidak dapat digunakan kembali atau diubah.
+- Token salah, dicabut, sudah dipakai, atau terkait kunjungan yang bukan `accepted` tidak mengungkapkan identitas tamu.
+- Kegagalan pengiriman mengikuti mekanisme retry notifikasi dan tidak membatalkan keputusan kunjungan.
 
 ##### US-02 — Mengambil daftar pegawai tujuan
 
@@ -93,42 +115,45 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 - Daftar mendukung pencarian nama, pagination, dan pengurutan alfabetis.
 - Pegawai nonaktif tidak dapat dipakai untuk kunjungan baru, tetapi tetap tampil pada riwayat lama.
 
-##### US-03 — Melihat tamu berdasarkan pegawai tujuan
+##### US-03 — Melihat detail tamu melalui tautan WhatsApp
 
-**User Story:** Sebagai pegawai, saya ingin melihat kunjungan yang ditujukan kepada saya agar dapat menindaklanjutinya.
+**User Story:** Sebagai pegawai tujuan, saya ingin membuka detail satu tamu dari tautan WhatsApp agar dapat menentukan tindak lanjut tanpa login atau memasang aplikasi.
 
 **Acceptance Criteria:**
 
-- Pegawai terautentikasi hanya dapat melihat kunjungan dengan `employee_id` miliknya; admin dapat memfilter pegawai mana pun.
-- Daftar mendukung filter status, rentang tanggal, pencarian nama/nomor kunjungan, pagination, dan urutan terbaru.
-- Respons memuat identitas tamu, maksud kedatangan, waktu kunjungan, status, alasan keputusan, dan URL foto berumur terbatas.
-- Percobaan mengakses kunjungan pegawai lain merespons HTTP `403`.
+- Setiap kunjungan memiliki token keputusan acak berentropi tinggi; database hanya menyimpan hash token.
+- Tautan hanya menampilkan satu kunjungan yang terikat dengan token tersebut dan tidak menyediakan daftar kunjungan pegawai.
+- Halaman memuat nama, alamat, maksud kedatangan, waktu, dan foto tamu melalui akses privat.
+- Tautan aktif hanya selama kunjungan masih `pending` dan token belum dicabut.
+- Token salah, token milik kunjungan lain, atau tautan yang sudah dipakai tidak mengungkapkan data tamu dan menampilkan status tidak tersedia.
+- Admin tetap melihat kunjungan melalui web admin dengan autentikasi session dan policy admin, bukan melalui tautan keputusan pegawai.
 
 ##### US-04 — Mengirim notifikasi kedatangan
 
-**User Story:** Sebagai pegawai tujuan, saya ingin menerima notifikasi ketika ada tamu agar dapat segera memberikan keputusan.
+**User Story:** Sebagai pegawai tujuan, saya ingin menerima WhatsApp ketika ada tamu agar dapat segera membuka detail dan memberikan keputusan.
 
 **Acceptance Criteria:**
 
 - Setelah transaksi kunjungan berhasil, sistem membuat pekerjaan notifikasi asynchronous.
-- Kanal MVP ditetapkan melalui konfigurasi tanpa perubahan kode utama. Pilihan final antara push notification dan WhatsApp berstatus `TBD`.
-- Payload tidak memuat alamat lengkap atau foto tamu; payload minimal berisi nomor kunjungan, nama tamu, maksud ringkas, dan waktu kedatangan.
+- Kanal MVP adalah WhatsApp melalui Fonnte API; credential dan endpoint provider hanya berada pada environment.
+- Pesan pegawai memuat nama tamu, alamat, maksud kedatangan, dan tautan keputusan. Foto tidak dikirim sebagai media WhatsApp.
 - Setiap percobaan mencatat kanal, status, waktu, jumlah percobaan, respons penyedia yang telah disanitasi, dan pesan gagal.
 - Pengiriman gagal dicoba ulang sekurang-kurangnya 3 kali dengan jeda bertingkat dan tidak membatalkan data kunjungan.
 - Admin dapat melihat status notifikasi pada detail kunjungan.
+- Setelah keputusan tersimpan, sistem mengantrekan pesan WhatsApp kepada nomor petugas yang dikonfigurasi. Pesan menyatakan tamu diterima beserta arahan atau ditolak beserta alasannya.
 
 ##### US-05 — Memverifikasi kunjungan
 
-**User Story:** Sebagai pegawai tujuan, saya ingin menerima, menolak, atau meminta tamu menunggu agar petugas mengetahui tindak lanjut kunjungan.
+**User Story:** Sebagai pegawai tujuan, saya ingin menerima atau menolak tamu dari halaman keputusan agar petugas mengetahui tindak lanjut kunjungan.
 
 **Acceptance Criteria:**
 
-- Pilihan status hanya `accepted`, `rejected`, atau `waiting`.
-- Alasan sepanjang 3–500 karakter wajib untuk `rejected` dan `waiting`.
-- Keputusan menyimpan `decided_by`, `decided_at`, status, dan alasan secara atomik.
-- Pegawai hanya dapat memutuskan kunjungan yang ditujukan kepadanya; admin tidak mengambil keputusan atas nama pegawai pada MVP.
+- Pilihan keputusan MVP hanya `accepted` atau `rejected`.
+- Alasan sepanjang 3–500 karakter wajib untuk `rejected` dan tidak ditampilkan untuk `accepted`.
+- Keputusan menyimpan waktu keputusan, status, alasan, dan jejak token/link yang digunakan secara atomik.
+- Otorisasi keputusan berasal dari token rahasia yang terikat pada kunjungan, bukan login akun pegawai; admin tidak mengambil keputusan atas nama pegawai pada MVP.
 - Perubahan keputusan setelah keputusan pertama ditolak dengan HTTP `409`; mekanisme koreksi oleh admin berada di luar MVP dan harus meninggalkan audit trail bila dibuat pada fase berikutnya.
-- API mengembalikan status terbaru setelah keputusan berhasil.
+- Setelah keputusan pertama, pengiriman ulang form atau pemakaian ulang link tidak mengubah data dan memberikan halaman bahwa keputusan telah diproses.
 
 ##### US-06 — Sign in dan lupa password admin
 
@@ -149,7 +174,7 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 
 **Acceptance Criteria:**
 
-- Dashboard menampilkan jumlah total kunjungan, diterima, ditolak, dan menunggu/pending.
+- Dashboard menampilkan jumlah total kunjungan, diterima, ditolak, dan belum diputuskan (`pending`).
 - Data default menggunakan tanggal hari berjalan pada zona waktu `Asia/Makassar`.
 - Admin dapat memilih rentang tanggal; seluruh kartu menggunakan rentang yang sama.
 - Nilai pada kartu dapat ditelusuri ke daftar kunjungan dengan filter yang sesuai.
@@ -186,7 +211,8 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 
 **Acceptance Criteria:**
 
-- Admin dapat membuat dan mengubah pegawai dengan nama, NIP/identifier opsional, jabatan, unit kerja, nomor WhatsApp opsional, identitas perangkat/token push opsional, dan status aktif.
+- Admin dapat membuat dan mengubah pegawai dengan nama, NIP/identifier opsional, jabatan, unit kerja, nomor WhatsApp, dan status aktif.
+- Nomor WhatsApp wajib tersedia dan valid sebelum pegawai dapat dipilih sebagai tujuan kunjungan aktif.
 - Sistem menolak NIP/identifier duplikat jika field tersebut diisi.
 - Pegawai yang sudah memiliki riwayat kunjungan tidak dapat dihapus permanen; admin hanya dapat menonaktifkannya.
 - Daftar mendukung pencarian, filter status, pengurutan, dan pagination.
@@ -198,9 +224,10 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 |---|---:|---:|
 | Master pegawai aktif | Ya | Ya |
 | Input kunjungan dan unggah foto | Ya | Ya |
-| Daftar kunjungan per pegawai | Ya | Ya |
-| Verifikasi diterima/ditolak/menunggu | Ya | Ya |
-| Satu kanal notifikasi terpilih | Ya | Ya, dengan retry dan monitoring matang |
+| Detail tamu melalui link WhatsApp sekali pakai | Ya | Ya |
+| Verifikasi diterima/ditolak | Ya | Ya |
+| WhatsApp melalui Fonnte API | Ya | Ya, dengan retry dan monitoring matang |
+| Survei kepuasan sekali pakai 3 jam setelah diterima | Dapat ditunda setelah alur keputusan stabil | Ya |
 | Login admin | Ya | Ya |
 | Lupa password | Dapat ditunda bila layanan email belum tersedia | Ya |
 | Dashboard ringkas | Ya | Ya, dengan filter periode |
@@ -213,23 +240,28 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 
 - Satu instalasi melayani banyak kantor atau pemisahan tenant dalam satu database.
 - Pembuatan client mobile; proyek ini hanya menyediakan API yang akan digunakan client tersebut.
+- Login, akun, daftar kunjungan, atau aplikasi khusus pada perangkat pribadi pegawai untuk MVP.
+- Push notification; seluruh notifikasi operasional MVP menggunakan WhatsApp melalui Fonnte API.
 - Registrasi mandiri tamu atau pegawai melalui aplikasi.
 - Integrasi biometrik, OCR KTP, pengenalan wajah, QR check-in, atau pencetakan badge.
 - Penjadwalan janji temu sebelum tamu datang.
 - Pelacakan lokasi tamu atau proses check-out pada MVP.
+- Survei multi-pertanyaan, survei anonim tanpa kaitan kunjungan, atau perubahan jawaban setelah survei dikirim.
 - Analitik prediktif atau fitur kecerdasan buatan.
 - Integrasi ke sistem kepegawaian eksternal.
-- Pengiriman notifikasi melalui push dan WhatsApp sekaligus pada MVP.
+- Status `waiting` dan perubahan keputusan setelah pegawai memilih menerima atau menolak.
 - Koreksi keputusan kunjungan tanpa audit trail.
 
 #### Assumptions and Open Decisions
 
 | Item | Status/Asumsi | Pemilik keputusan | Batas keputusan |
 |---|---|---|---|
-| Kanal notifikasi MVP | `TBD`: push notification atau WhatsApp | Product owner + tim teknis | Sebelum implementasi notifikasi MVP |
-| Penyedia WhatsApp | `TBD`: WhatsApp Business Platform resmi/BSP | Tim teknis | Sebelum memilih WhatsApp |
-| Penyedia push | `TBD`: disarankan Firebase Cloud Messaging jika sesuai client mobile | Tim mobile + backend | Sebelum memilih push |
-| Autentikasi pegawai pada client | `TBD`: akun pegawai/token perangkat/SSO | Product owner | Minggu pertama MVP |
+| Kanal notifikasi MVP | Diputuskan: WhatsApp | Product owner | 23 Juli 2026 |
+| Penyedia WhatsApp | Diputuskan: Fonnte API, kantor telah berlangganan | Product owner + tim teknis | 23 Juli 2026 |
+| Otorisasi keputusan pegawai | Diputuskan: tautan rahasia sekali pakai, aktif hanya selama kunjungan `pending`; tanpa login pegawai | Product owner + tim teknis | 23 Juli 2026 |
+| Nomor WhatsApp petugas | `TBD`: satu nomor kantor melalui environment atau master petugas | Product owner | Sebelum implementasi notifikasi hasil |
+| Pemicu survei | Diputuskan: otomatis 3 jam setelah `accepted`; tanpa proses check-out | Product owner | 23 Juli 2026 |
+| Isi survei | Diputuskan: rating wajib 1–5 dan komentar/saran opsional | Product owner | 23 Juli 2026 |
 | Pengirim email reset password | `TBD`: SMTP kantor atau layanan email | Infrastruktur | Sebelum rilis operasional |
 | Retensi data kunjungan dan foto | `TBD` sesuai kebijakan arsip dan privasi kantor | Pimpinan/pejabat data | Sebelum rilis operasional |
 | Volume penggunaan | Asumsi desain: hingga 100.000 kunjungan per instalasi | Product owner | Validasi saat UAT |
@@ -255,17 +287,18 @@ Tidak ada evaluasi kualitas keluaran AI. Evaluasi produk dilakukan melalui pengu
 #### Architecture Overview
 
 ```text
-Client Mobile ───────┐
+Tablet Kiosk ────────┐
                     ├── HTTPS ── Laravel Application/API ── Eloquent ── MySQL
-Web Admin + Tailwind ┘                    │
-                                         ├── Private Object/File Storage (foto)
-                                         ├── Queue Worker ── Push/WhatsApp Provider
-                                         └── Mail Provider (reset password)
+Web Admin + Tailwind ┤                    │
+                    │                    ├── Private Object/File Storage (foto)
+WhatsApp Pegawai ────┤                    ├── Queue Worker ── Fonnte API ── WhatsApp
+                    │                    └── Mail Provider (reset password admin)
+Halaman Keputusan ───┘
 ```
 
 - Laravel menyediakan REST API versioned dan halaman admin server-rendered atau komponen web yang tetap berada dalam satu aplikasi.
 - Eloquent menjadi satu-satunya lapisan akses data utama ke MySQL; query agregasi boleh menggunakan query builder Laravel untuk efisiensi.
-- Pengiriman notifikasi dan pekerjaan berat memakai queue agar request input kunjungan tidak tertahan oleh layanan eksternal.
+- Pengiriman WhatsApp kepada pegawai dan petugas memakai queue agar input kunjungan maupun keputusan tidak tertahan oleh Fonnte API.
 - Scheduler Laravel menangani pembersihan token kedaluwarsa, retry terjadwal, dan pekerjaan pemeliharaan.
 - Foto disimpan pada disk privat lokal atau object storage kompatibel S3 berdasarkan konfigurasi deployment.
 - Konfigurasi yang berbeda memungkinkan codebase yang sama direplikasi per kantor tanpa menggabungkan datanya.
@@ -274,10 +307,12 @@ Web Admin + Tailwind ┘                    │
 
 | Entitas | Field utama | Catatan |
 |---|---|---|
-| `users` | id, name, email, password, role, is_active, timestamps | Admin dan, bergantung keputusan autentikasi, akun pegawai |
-| `employees` | id, user_id nullable, employee_no nullable, name, position, unit, whatsapp_number encrypted nullable, is_active, timestamps | Master pegawai tujuan; soft delete atau nonaktif |
-| `employee_devices` | id, employee_id, provider, device_token encrypted, last_seen_at, revoked_at | Diperlukan bila kanal push digunakan |
-| `visits` | id, visit_number, guest_name, address, employee_id, purpose, photo_path, status, reason nullable, decided_by nullable, decided_at nullable, created_at, updated_at | Status: pending, waiting, accepted, rejected |
+| `users` | id, name, email, password, role, is_active, timestamps | Akun web admin; akun pegawai tidak diperlukan pada MVP |
+| `employees` | id, employee_no nullable, name, position, unit, whatsapp_number encrypted, is_active, timestamps | Master pegawai tujuan dan nomor penerima WhatsApp; soft delete atau nonaktif |
+| `visits` | id, visit_number, guest_name, address, guest_whatsapp encrypted, employee_id, purpose, photo_path, status, reason nullable, decided_at nullable, created_at, updated_at | Status aktif MVP: pending, accepted, rejected |
+| `visit_decision_tokens` | id, visit_id unique, token_hash unique, revoked_at nullable, used_at nullable, timestamps | Token asli hanya dikirim melalui link WhatsApp dan tidak disimpan dalam bentuk teks asli |
+| `survey_tokens` | id, visit_id unique, token_hash unique, scheduled_at, sent_at nullable, revoked_at nullable, used_at nullable, timestamps | Hanya untuk kunjungan accepted; token asli tidak disimpan |
+| `survey_responses` | id, visit_id unique, rating, comment nullable, submitted_at, timestamps | Rating integer 1–5; satu respons per kunjungan |
 | `notification_deliveries` | id, visit_id, employee_id, channel, provider_message_id nullable, status, attempts, last_attempt_at, error_message nullable, timestamps | Audit teknis pengiriman |
 | `audit_logs` | id, actor_id nullable, action, auditable_type, auditable_id, metadata JSON, ip_address, created_at | Tidak menyimpan password/token/isi foto |
 | `password_reset_tokens` | email, token, created_at | Mengikuti mekanisme Laravel |
@@ -289,12 +324,10 @@ Indeks minimum: `visits(employee_id, created_at)`, `visits(status, created_at)`,
 ```text
 pending ──► accepted
    │
-   ├──────► rejected
-   │
-   └──────► waiting
+   └──────► rejected
 ```
 
-Pada MVP, setiap kunjungan menerima satu keputusan final. `waiting` diperlakukan sebagai keputusan operasional yang tampil terpisah pada daftar, sedangkan kartu “menunggu” di dashboard menggabungkan `pending + waiting` dan harus memiliki tooltip/label penjelas. Perubahan dari `waiting` ke `accepted/rejected` menjadi kandidat v1.1 setelah alur bisnis dikonfirmasi.
+Pada MVP, setiap kunjungan menerima tepat satu keputusan final. Status `waiting` tidak digunakan dalam alur kiosk–WhatsApp yang telah disepakati. Kartu “menunggu” pada dashboard berarti kunjungan berstatus `pending` yang belum diputuskan.
 
 #### API Contract (Proposed)
 
@@ -304,11 +337,10 @@ Base path: `/api/v1`. Format respons: JSON. Semua tanggal menggunakan ISO 8601 d
 |---|---|---|---|
 | `POST` | `/visits` | Membuat kunjungan multipart/form-data | Client terotorisasi/rate-limited |
 | `GET` | `/employees` | Daftar pegawai aktif | Client terotorisasi |
-| `GET` | `/employees/{employee}/visits` | Daftar kunjungan per pegawai | Pegawai terkait/admin |
-| `GET` | `/visits/{visit}` | Detail kunjungan | Pegawai terkait/admin |
-| `POST` | `/visits/{visit}/decision` | Menerima, menolak, atau menunggu | Pegawai terkait |
-| `POST` | `/auth/login` | Login pengguna API | Publik, rate-limited |
-| `POST` | `/auth/logout` | Membatalkan token | Terautentikasi |
+| `GET` | `/decisions/{token}` | Halaman web detail satu kunjungan | Token rahasia aktif milik kunjungan |
+| `POST` | `/decisions/{token}` | Menerima atau menolak kunjungan | Token rahasia aktif milik kunjungan, rate-limited |
+| `GET` | `/surveys/{token}` | Halaman web survei kepuasan | Token survei aktif milik kunjungan accepted |
+| `POST` | `/surveys/{token}` | Menyimpan rating dan komentar | Token survei aktif, sekali pakai, rate-limited |
 | `POST` | `/auth/forgot-password` | Memulai reset password | Publik, rate-limited |
 | `POST` | `/auth/reset-password` | Menetapkan password baru | Token reset valid |
 | `GET` | `/admin/dashboard` | Agregat dashboard | Admin |
@@ -318,7 +350,9 @@ Base path: `/api/v1`. Format respons: JSON. Semua tanggal menggunakan ISO 8601 d
 
 Ketentuan kontrak:
 
-- Gunakan autentikasi Laravel Sanctum untuk token mobile dan session/cookie aman untuk web admin, kecuali hasil spike teknis menetapkan solusi lain.
+- Gunakan shared client key terkonfigurasi untuk aplikasi kiosk pada tablet, session/cookie aman untuk web admin, dan capability token acak sekali pakai untuk halaman keputusan pegawai.
+- Token keputusan disimpan sebagai hash, dibandingkan secara konstan, terikat pada satu kunjungan, serta dicabut atomik saat keputusan pertama tersimpan.
+- Token survei mengikuti kontrol yang sama dan dicabut atomik saat respons pertama tersimpan.
 - Gunakan Laravel API Resources agar bentuk respons konsisten.
 - Pagination default 20, maksimum 100 item per halaman.
 - Error menggunakan struktur konsisten: `message`, `errors`, dan `request_id`.
@@ -329,8 +363,7 @@ Ketentuan kontrak:
 
 - **MySQL:** penyimpanan transaksi, master data, status, dan audit.
 - **Private storage:** penyimpanan foto tamu; akses melalui signed URL berumur maksimum 10 menit atau streaming setelah otorisasi.
-- **Push provider:** `TBD`, kandidat Firebase Cloud Messaging; membutuhkan token perangkat dan penanganan token tidak valid.
-- **WhatsApp provider:** `TBD`, wajib memakai penyedia resmi dan template pesan yang disetujui bila WhatsApp dipilih.
+- **WhatsApp provider:** Fonnte API untuk pemberitahuan pegawai, hasil keputusan kepada petugas, dan tautan survei kepada tamu; membutuhkan API token, nomor tujuan tervalidasi, timeout, retry, dan sanitasi log respons.
 - **Email:** SMTP atau layanan email untuk reset password, `TBD`.
 - **Queue backend:** database queue dapat dipakai untuk MVP; Redis direkomendasikan bila beban atau kebutuhan observabilitas meningkat.
 
@@ -347,8 +380,10 @@ Ketentuan kontrak:
 
 - Semua lingkungan produksi wajib menggunakan HTTPS dan cookie web `Secure`, `HttpOnly`, serta `SameSite` yang sesuai.
 - Gunakan Laravel validation, authorization policy, CSRF protection untuk web, rate limiting, dan prepared query melalui Eloquent/query builder.
-- Terapkan role-based access dan pemeriksaan kepemilikan kunjungan pada setiap endpoint pegawai.
-- Nomor WhatsApp dan token perangkat dienkripsi at rest menggunakan mekanisme aplikasi; secret provider hanya berada di environment/secret manager.
+- Terapkan role-based access pada web admin. Halaman keputusan wajib memverifikasi token rahasia dan status `pending` tanpa menerima `visit_id` dari client sebagai sumber otorisasi.
+- Jangan menyimpan token keputusan asli di database atau log. Respons untuk token salah, sudah dipakai, dan dicabut tidak boleh mengungkapkan identitas tamu.
+- Jangan menyimpan token survei asli atau isi komentar dalam log. Nomor tamu hanya boleh digunakan untuk komunikasi terkait kunjungan dan survei yang ditentukan PRD.
+- Nomor WhatsApp pegawai dan tamu dienkripsi at rest menggunakan mekanisme aplikasi; secret provider hanya berada di environment/secret manager.
 - Foto dan alamat diperlakukan sebagai data pribadi, tidak dimasukkan ke log aplikasi, analytics, atau payload notifikasi secara lengkap.
 - Batasi MIME berdasarkan inspeksi server, ubah nama file menjadi identifier acak, dan tolak executable/polyglot yang terdeteksi. Antivirus scanning dipertimbangkan untuk rilis operasional.
 - Backup database dan storage dilakukan setiap hari; target awal RPO maksimum 24 jam dan RTO maksimum 8 jam, lalu divalidasi oleh tim infrastruktur.
@@ -373,9 +408,9 @@ Ketentuan kontrak:
 #### Testing and Validation
 
 - **Unit test:** validasi status, policy akses, pembuatan nomor kunjungan, agregasi dashboard, dan formatter laporan.
-- **Feature/API test:** seluruh endpoint sukses/gagal, autentikasi, otorisasi antarpegawai, pagination, filter, idempotency, dan upload file.
-- **Integration test:** sandbox penyedia notifikasi, queue retry/failure, storage privat, email reset, dan database migration.
-- **Security test:** CSRF, IDOR, brute-force rate limit, file upload berbahaya, akses signed URL kedaluwarsa, serta kebocoran field sensitif.
+- **Feature/API test:** seluruh endpoint sukses/gagal, autentikasi admin/client, token keputusan/survei, pagination, filter, idempotency, dan upload file.
+- **Integration test:** sandbox Fonnte, delayed survey job tiga jam, queue retry/failure, storage privat, email reset, dan database migration.
+- **Security test:** CSRF, substitusi token/IDOR, replay keputusan/survei, brute-force rate limit, file upload berbahaya, akses signed URL kedaluwarsa, serta kebocoran field sensitif/token.
 - **Performance test:** 50 pengguna bersamaan, dataset 100.000 kunjungan, dengan hasil p95 dibandingkan target NFR.
 - **PDF test:** verifikasi filter dan total secara otomatis, lalu pemeriksaan visual sampel laporan panjang, karakter Indonesia, page break, header, dan footer.
 - **Responsive test:** viewport 360/768/1024/1280 px dan navigasi keyboard pada halaman login, dashboard, kunjungan, pegawai, user, dan laporan.
@@ -399,8 +434,8 @@ Ketentuan kontrak:
 
 ##### MVP — 22 Juli–5 Agustus 2026
 
-- Hari 1–2: finalisasi kanal notifikasi, autentikasi pegawai, kontrak OpenAPI, skema data, dan wireframe halaman inti.
-- Hari 3–7: implementasi master pegawai, input kunjungan/foto, daftar per pegawai, verifikasi, login admin, dan queue notifikasi.
+- Hari 1–2: finalisasi konfigurasi Fonnte, format nomor petugas, kontrak OpenAPI, skema token keputusan, dan wireframe halaman keputusan.
+- Hari 3–7: implementasi master pegawai, input kunjungan/foto, tautan keputusan sekali pakai, verifikasi, login admin, dan queue WhatsApp.
 - Hari 8–10: dashboard dasar, PDF dasar, halaman Tailwind inti, serta pengujian API dan policy.
 - Hari 11–12: integrasi sandbox client/notifikasi dan perbaikan defect.
 - Hari 13–14: deployment staging, UAT MVP, dokumentasi, dan demo pada 5 Agustus 2026.
@@ -408,13 +443,14 @@ Ketentuan kontrak:
 ##### v1.1 / Production Hardening — 6 Agustus–22 September 2026
 
 - Menyelesaikan forgot password dan manajemen user melalui web.
+- Menambahkan survei kepuasan sekali pakai, pengiriman tertunda tiga jam, dan ringkasan hasil survei.
 - Mematangkan laporan PDF, filter dashboard, audit log, retry/monitoring notifikasi, dan responsive/accessibility QA.
 - Melakukan performance test, security test, backup restore drill, pelatihan admin, migrasi konfigurasi produksi, dan UAT final.
 - Go-live bertahap: pilot internal 3–5 hari, evaluasi, lalu penggunaan kantor penuh paling lambat 22 September 2026.
 
 ##### v2.0 — Setelah evaluasi operasional
 
-- Dukungan perubahan status dari `waiting` ke keputusan akhir dengan histori status.
+- Status sementara atau perubahan keputusan dengan histori status bila kebutuhan operasional membuktikannya perlu.
 - Check-out tamu, QR code, appointment, atau badge bila dibuktikan perlu oleh data operasional.
 - Kanal notifikasi cadangan/fallback dan dashboard delivery analytics.
 - Paket deployment terdokumentasi untuk replikasi kantor lain tanpa fitur multi-tenant.
@@ -423,9 +459,10 @@ Ketentuan kontrak:
 
 | Risiko | Probabilitas | Dampak | Mitigasi |
 |---|---|---|---|
-| Kanal notifikasi belum dipilih | Tinggi | Tinggi terhadap target 2 minggu | Putuskan pada hari pertama; buat abstraction interface dan satu adapter MVP |
-| WhatsApp memerlukan akun, template, dan persetujuan provider | Sedang–tinggi | Tinggi | Gunakan provider resmi; mulai proses persetujuan segera; pilih push untuk MVP bila lead time tidak cukup |
-| Autentikasi pegawai belum didefinisikan | Tinggi | Tinggi/risiko akses data | Putuskan model akun/token pada minggu pertama dan uji authorization policy secara eksplisit |
+| Gangguan atau perubahan layanan Fonnte API | Sedang | Tinggi | Gunakan adapter terisolasi, timeout, queue retry, delivery log, dan prosedur fallback manual |
+| Tautan keputusan diteruskan atau bocor | Sedang | Tinggi | Token acak berentropi tinggi, simpan hash, HTTPS, sekali pakai, redaksi log, dan invalidasi segera setelah keputusan |
+| Survei terkirim terlalu cepat, terlambat, atau ganda | Sedang | Sedang | Gunakan delayed queue berdasarkan `decided_at`, unique job/token, idempotensi pengiriman, dan rekonsiliasi scheduler |
+| Nomor WhatsApp tamu salah atau bukan milik tamu | Sedang | Sedang | Normalisasi dan validasi struktur, tampilkan konfirmasi nomor pada tablet, serta catat kegagalan delivery tanpa retry tanpa batas |
 | Target MVP dua minggu sangat ketat | Tinggi | Tinggi | Batasi pada alur inti, satu kanal, dashboard/PDF dasar; pindahkan hardening ke v1.1 |
 | Foto memperbesar storage dan backup | Sedang | Sedang | Batasi 5 MB, kompresi terkontrol, monitoring kapasitas, dan kebijakan retensi |
 | Layanan notifikasi eksternal gagal atau lambat | Sedang | Sedang | Queue, retry bertingkat, failure log, alert, dan status delivery pada admin |
@@ -438,10 +475,11 @@ Ketentuan kontrak:
 
 - Persetujuan product owner atas scope dan alur keputusan kunjungan.
 - Data awal pegawai PTA Manado beserta jabatan, unit, dan kontak/perangkat notifikasi.
-- Akun serta credential penyedia push/WhatsApp yang sah.
+- Persetujuan teks pesan survei dan kebijakan penggunaan nomor WhatsApp tamu untuk tindak lanjut pelayanan.
+- Akun dan API token Fonnte yang sah serta saldo/kuota pengiriman yang cukup.
 - SMTP atau layanan email untuk forgot password.
 - Server produksi dengan PHP/Laravel runtime, MySQL, queue worker, scheduler, HTTPS, storage, backup, dan monitoring.
-- Tim/framework mobile menyepakati OpenAPI, autentikasi, format foto, dan mekanisme registrasi token perangkat.
+- Tim/framework mobile menyepakati OpenAPI, autentikasi kiosk, format foto, serta format input dan konfirmasi nomor WhatsApp tamu.
 
 #### Release Gates
 
@@ -451,11 +489,12 @@ Ketentuan kontrak:
 
 #### Recommended Immediate Decisions
 
-1. Pilih kanal MVP. Push notification lebih mungkin memenuhi jadwal dua minggu bila client mobile dan FCM siap; WhatsApp dipilih hanya jika akun bisnis, nomor, template, dan provider resmi sudah tersedia.
-2. Tetapkan cara pegawai login dan hubungan `users` dengan `employees` sebelum endpoint daftar/verifikasi dibangun.
+1. Tetapkan satu nomor WhatsApp petugas penerima tamu dan format arahan penerimaan yang akan dikonfigurasi pada server.
+2. Sediakan credential Fonnte untuk lingkungan sandbox/staging dan pastikan format nomor pegawai telah dinormalisasi.
 3. Serahkan data pegawai awal dan identitas visual kantor pada hari pertama.
-4. Sepakati definisi `waiting`: keputusan akhir pada MVP atau status sementara yang boleh berubah. PRD ini menganggapnya keputusan akhir untuk menjaga scope dua minggu.
+4. Uji redaksi log dan replay protection pada tautan keputusan sebelum UAT.
 5. Tetapkan retensi foto dan data kunjungan sebelum go-live produksi.
+6. Tetapkan teks WhatsApp survei dan cara admin melihat ringkasan rating sebelum fitur survei dirilis.
 
 ---
 
@@ -466,6 +505,8 @@ Ketentuan kontrak:
 | Kunjungan terdokumentasi | `visits` dan audit request | Harian | Jumlah record valid dibanding transaksi sukses client |
 | Distribusi status | `visits.status` | Harian/bulanan | Count per status dalam periode dan zona waktu yang sama |
 | Kecepatan pemrosesan notifikasi | `notification_deliveries` + queue metrics | Harian | Selisih `visits.created_at` dengan waktu percobaan pertama; hitung p95 dan persentase <60 detik |
+| Ketepatan jadwal survei | `survey_tokens`, delivery log, dan queue metrics | Harian | Persentase survei accepted yang dikirim pada jendela 3 jam ±5 menit dari `decided_at`; target ≥95% |
+| Respons survei | `survey_responses` | Mingguan/bulanan | Jumlah respons valid dibagi survei yang berhasil dikirim; rating rata-rata dilaporkan tanpa mengubah data mentah |
 | Latensi API | APM/structured log | Harian | p95 durasi endpoint, pisahkan upload dan non-upload |
 | Konsistensi laporan | Test suite + rekonsiliasi | Setiap rilis | Total dashboard/PDF harus sama dengan query detail untuk filter identik |
 

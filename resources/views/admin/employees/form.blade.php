@@ -47,9 +47,9 @@
                     @error('position_id') <p class="mt-2 text-sm text-rose-300" role="alert">{{ $message }}</p> @enderror
                 </div>
                 <div class="sm:col-span-2">
-                    <label for="notification_contact" class="block text-sm font-semibold text-slate-200">Kontak Notifikasi <span class="font-normal text-slate-500">(opsional)</span></label>
-                    <input id="notification_contact" name="notification_contact" value="{{ old('notification_contact', $employee->notification_contact) }}" autocomplete="off" class="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 text-white outline-none focus:border-sky-400" placeholder="Nomor WhatsApp atau identifier notifikasi">
-                    <p class="mt-2 text-xs text-slate-500">Nilai disimpan terenkripsi dan hanya tersedia bagi admin berwenang.</p>
+                    <label for="notification_contact" class="block text-sm font-semibold text-slate-200">Nomor WhatsApp</label>
+                    <input id="notification_contact" name="notification_contact" value="{{ old('notification_contact', $employee->notification_contact) }}" inputmode="tel" autocomplete="tel" class="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 text-white outline-none focus:border-sky-400" placeholder="Contoh: 081234567890">
+                    <p class="mt-2 text-xs text-slate-500">Wajib untuk pegawai aktif. Nomor dinormalisasi ke format internasional dan disimpan terenkripsi.</p>
                     @error('notification_contact') <p class="mt-2 text-sm text-rose-300" role="alert">{{ $message }}</p> @enderror
                 </div>
             </div>
@@ -57,7 +57,7 @@
             <label class="flex items-start gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-4">
                 <input type="hidden" name="is_active" value="0">
                 <input name="is_active" type="checkbox" value="1" @checked((bool) old('is_active', $employee->exists ? $employee->is_active : true)) class="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-900 text-sky-400 focus:ring-sky-400">
-                <span><span class="block font-semibold text-white">Pegawai aktif</span><span class="mt-1 block text-sm text-slate-400">Hanya pegawai aktif yang tersedia sebagai tujuan kunjungan baru.</span></span>
+                <span><span class="block font-semibold text-white">Pegawai aktif</span><span class="mt-1 block text-sm text-slate-400">Hanya pegawai aktif dengan nomor WhatsApp valid yang tersedia sebagai tujuan kunjungan baru.</span></span>
             </label>
 
             <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
