@@ -2,28 +2,30 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Data\VisitFilters;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\VisitFilterRequest;
+use App\Models\Employee;
 use App\Models\Visit;
-use Illuminate\Http\Request;
+use App\Services\VisitFilterService;
 use Illuminate\Support\Facades\URL;
 use Illuminate\View\View;
 
 class VisitController extends Controller
 {
-    public function index(Request $request): View
+    public function index(VisitFilterRequest $request, VisitFilterService $filterService): View
     {
-        $search = trim((string) $request->query('q', ''));
-        $visits = Visit::query()
-            ->with(['employee', 'notificationDeliveries'])
-            ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
-                ->where('guest_name', 'like', "%{$search}%")
-                ->orWhere('visit_number', 'like', "%{$search}%")
-                ->orWhereHas('employee', fn ($query) => $query->where('name', 'like', "%{$search}%"))))
+        $filters = VisitFilters::fromValidated($request->validated());
+        $visits = $filterService->apply(
+            Visit::query()->with(['employee', 'notificationDeliveries']),
+            $filters,
+        )
             ->latest('arrived_at')
-            ->paginate(20)
+            ->paginate($filters->perPage)
             ->withQueryString();
+        $employees = Employee::query()->orderBy('name')->get(['id', 'name']);
 
-        return view('admin.visits.index', compact('visits'));
+        return view('admin.visits.index', compact('visits', 'employees', 'filters'));
     }
 
     public function show(Visit $visit): View
