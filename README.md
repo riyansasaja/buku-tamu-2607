@@ -128,3 +128,13 @@ Workflow quality menyediakan PHP 8.3, Node.js 22, dan MySQL 8, menjalankan migra
 ## Dokumentasi produk
 
 Scope dan acceptance criteria lengkap aplikasi terdapat pada [PRD Buku Tamu PTA Manado](document/prd/PRD-Aplikasi-Buku-Tamu-PTA-Manado.md).
+
+## Deployment production
+
+Panduan hosting, bootstrap admin, Nginx, queue worker, scheduler, backup/restore, monitoring, load test, rollback, dan UAT tersedia pada:
+
+- [Deployment dan operasional](document/operations/DEPLOYMENT.md)
+- [Runbook insiden](document/operations/RUNBOOK.md)
+- [Checklist UAT](document/operations/UAT-CHECKLIST.md)
+
+Sebelum go-live jalankan `php artisan app:production-check`. Bootstrap admin production menggunakan `ProductionAdminSeeder` secara eksplisit; seeder tersebut tidak dipanggil oleh `DatabaseSeeder`, tidak dapat berjalan di environment selain production, dan tidak mereset password akun yang sudah ada.

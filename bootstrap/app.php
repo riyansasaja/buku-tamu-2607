@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\HealthController;
 use App\Http\Middleware\AssignApiRequestId;
+use App\Http\Middleware\AssignRequestContext;
 use App\Http\Middleware\EnsureAdminIsActive;
 use App\Http\Middleware\EnsureApiClientKey;
 use App\Http\Middleware\SecurityHeaders;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(AssignRequestContext::class);
         $middleware->append(SecurityHeaders::class);
         $middleware->alias([
             'admin.active' => EnsureAdminIsActive::class,

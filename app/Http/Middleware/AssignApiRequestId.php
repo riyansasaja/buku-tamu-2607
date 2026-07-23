@@ -16,10 +16,11 @@ class AssignApiRequestId
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $existing = $request->attributes->get('request_id');
         $supplied = $request->header('X-Request-ID');
-        $requestId = is_string($supplied) && preg_match('/^[A-Za-z0-9._-]{1,100}$/', $supplied)
+        $requestId = is_string($existing) ? $existing : (is_string($supplied) && preg_match('/^[A-Za-z0-9._-]{1,100}$/', $supplied)
             ? $supplied
-            : (string) str()->uuid();
+            : (string) str()->uuid());
         $request->attributes->set('request_id', $requestId);
 
         try {

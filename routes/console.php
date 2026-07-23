@@ -13,3 +13,7 @@ Schedule::command('visits:purge-expired')
     ->timezone((string) config('retention.timezone'))
     ->when(fn (): bool => (bool) config('retention.automatic_enabled'))
     ->withoutOverlapping();
+
+Schedule::command('operations:heartbeat')
+    ->everyMinute()
+    ->withoutOverlapping();
