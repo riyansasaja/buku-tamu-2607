@@ -84,6 +84,25 @@ Tambahkan unit kerja dan jabatan aktif sebelum membuat pegawai. Pegawai menyimpa
 
 Kontak notifikasi pegawai disimpan menggunakan encrypted cast Laravel, tidak ditampilkan pada daftar, dan disembunyikan dari serialisasi model secara default.
 
+## Notifikasi WhatsApp Fonnte
+
+Konfigurasikan integrasi hanya melalui `.env` lokal/production:
+
+```env
+FONNTE_API_URL=https://api.fonnte.com/send
+FONNTE_API_TOKEN=
+FONNTE_TIMEOUT=15
+RECEPTION_WHATSAPP_NUMBER=
+```
+
+Token Fonnte dan nomor tujuan tidak boleh ditulis pada source code, log, GitHub issue, atau commit. Nomor WhatsApp pegawai dan tamu disimpan terenkripsi. Job notifikasi berjalan pada queue `notifications`; `composer run dev` sudah menjalankan queue listener. Pada deployment production, pastikan worker memproses queue tersebut, misalnya:
+
+```bash
+php artisan queue:work --queue=notifications,default --tries=3
+```
+
+Kunjungan baru mengantrekan WhatsApp kepada pegawai. Keputusan menerima/menolak mengantrekan WhatsApp kepada nomor petugas. Status delivery dapat dipantau oleh admin melalui `/admin/visits`. Test otomatis menggunakan fake HTTP dan tidak mengirim pesan nyata atau memakai kuota Fonnte.
+
 ## Quality checks
 
 Setelah dependency PHP dan frontend terpasang, jalankan seluruh test, formatter check, static analysis, dan production asset build dengan satu perintah:

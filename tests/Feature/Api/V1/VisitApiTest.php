@@ -2,12 +2,15 @@
 
 namespace Tests\Feature\Api\V1;
 
+use App\Enums\NotificationType;
+use App\Jobs\SendVisitWhatsApp;
 use App\Models\Employee;
 use App\Models\Visit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -21,6 +24,7 @@ class VisitApiTest extends TestCase
         parent::setUp();
         config(['api.client_key' => 'test-client-key']);
         Storage::fake('local');
+        Queue::fake();
     }
 
     public function test_api_requires_valid_client_key_and_returns_request_id(): void
@@ -150,6 +154,9 @@ class VisitApiTest extends TestCase
         $this->assertSame($first->json('data.id'), $second->json('data.id'));
         $this->assertDatabaseCount('visits', 1);
         $this->assertCount(1, Storage::disk('local')->allFiles());
+        Queue::assertPushed(SendVisitWhatsApp::class, 1);
+        Queue::assertPushed(fn (SendVisitWhatsApp $job): bool => $job->visitId === $first->json('data.id')
+            && $job->type === NotificationType::EmployeeArrival);
     }
 
     public function test_same_idempotency_key_with_different_payload_conflicts(): void

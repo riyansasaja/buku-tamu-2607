@@ -2,13 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Enums\NotificationType;
 use App\Enums\VisitStatus;
 use App\Events\VisitDecisionRecorded;
+use App\Jobs\SendVisitWhatsApp;
 use App\Models\AuditLog;
 use App\Models\Visit;
 use App\Services\DecisionLinkService;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class VisitDecisionTest extends TestCase
@@ -19,6 +22,7 @@ class VisitDecisionTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        Queue::fake();
     }
 
     public function test_employee_can_accept_visit_atomically_and_event_is_dispatched_once(): void
@@ -97,6 +101,8 @@ class VisitDecisionTest extends TestCase
 
         $this->assertSame(VisitStatus::Accepted, $first->fresh()->status);
         $this->assertSame(VisitStatus::Pending, $second->fresh()->status);
+        Queue::assertPushed(fn (SendVisitWhatsApp $job): bool => $job->visitId === $first->id
+            && $job->type === NotificationType::ReceptionAccepted);
     }
 
     public function test_decision_action_is_rate_limited_and_route_has_csrf_middleware(): void

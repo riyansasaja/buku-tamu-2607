@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Data\VisitCreationResult;
 use App\Enums\VisitStatus;
+use App\Events\VisitRecorded;
 use App\Exceptions\IdempotencyConflictException;
 use App\Models\Visit;
 use Illuminate\Database\QueryException;
@@ -65,6 +66,8 @@ class VisitCreationService
             Storage::disk('local')->delete($path);
             throw $exception;
         }
+
+        VisitRecorded::dispatch($visit->id);
 
         return new VisitCreationResult($visit, false);
     }

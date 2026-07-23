@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\PositionController;
+use App\Http\Controllers\Admin\VisitController;
 use App\Http\Controllers\Admin\WorkUnitController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DecisionPageController;
@@ -32,6 +33,7 @@ Route::middleware(['auth', 'admin.active'])->group(function (): void {
 
         Route::resource('positions', PositionController::class)->except(['show', 'destroy']);
         Route::patch('positions/{position}/status', [PositionController::class, 'status'])->name('positions.status');
+        Route::resource('visits', VisitController::class)->only(['index', 'show']);
     });
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });

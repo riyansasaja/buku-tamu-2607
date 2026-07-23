@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'fonnte' => [
+        'url' => env('FONNTE_API_URL', 'https://api.fonnte.com/send'),
+        'token' => env('FONNTE_API_TOKEN'),
+        'timeout' => (int) env('FONNTE_TIMEOUT', 15),
+        'reception_number' => env('RECEPTION_WHATSAPP_NUMBER'),
+    ],
+
 ];

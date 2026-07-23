@@ -31,6 +31,7 @@
                     <nav class="order-3 flex w-full gap-2 overflow-x-auto pb-1 sm:order-none sm:w-auto sm:pb-0" aria-label="Navigasi admin">
                         @foreach ([
                             ['admin.dashboard', 'Dashboard', 'admin.dashboard'],
+                            ['admin.visits.index', 'Kunjungan', 'admin.visits.*'],
                             ['admin.employees.index', 'Pegawai', 'admin.employees.*'],
                             ['admin.work-units.index', 'Unit Kerja', 'admin.work-units.*'],
                             ['admin.positions.index', 'Jabatan', 'admin.positions.*'],
