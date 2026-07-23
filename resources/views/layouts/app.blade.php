@@ -35,6 +35,7 @@
                             ['admin.employees.index', 'Pegawai', 'admin.employees.*'],
                             ['admin.work-units.index', 'Unit Kerja', 'admin.work-units.*'],
                             ['admin.positions.index', 'Jabatan', 'admin.positions.*'],
+                            ['admin.users.index', 'Pengguna', 'admin.users.*'],
                         ] as [$route, $label, $pattern])
                             <a href="{{ route($route) }}" @class([
                                 'shrink-0 rounded-lg px-3 py-2 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300',

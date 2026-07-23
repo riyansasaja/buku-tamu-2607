@@ -18,7 +18,7 @@ class EnsureAdminIsActive
     {
         $user = $request->user();
 
-        if ($user instanceof User && $user->isAdmin() && $user->isActive()) {
+        if ($user instanceof User && $user->isAdmin() && $user->isActive() && $user->activated_at !== null) {
             return $next($request);
         }
 

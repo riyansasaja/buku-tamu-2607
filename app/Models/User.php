@@ -8,11 +8,12 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'is_active'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable(['name', 'email', 'whatsapp', 'whatsapp_hash', 'password', 'role', 'is_active', 'activated_at'])]
+#[Hidden(['password', 'remember_token', 'whatsapp', 'whatsapp_hash'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -30,6 +31,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => UserRole::class,
             'is_active' => 'boolean',
+            'whatsapp' => 'encrypted',
+            'activated_at' => 'immutable_datetime',
         ];
     }
 
@@ -41,5 +44,17 @@ class User extends Authenticatable
     public function isActive(): bool
     {
         return $this->is_active;
+    }
+
+    /** @return HasMany<UserActivationToken, $this> */
+    public function activationTokens(): HasMany
+    {
+        return $this->hasMany(UserActivationToken::class);
+    }
+
+    /** @return HasMany<UserNotificationDelivery, $this> */
+    public function userNotificationDeliveries(): HasMany
+    {
+        return $this->hasMany(UserNotificationDelivery::class);
     }
 }

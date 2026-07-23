@@ -47,6 +47,7 @@ class LoginRequest extends FormRequest
             'password' => $this->string('password')->toString(),
             'role' => UserRole::Admin->value,
             'is_active' => true,
+            fn ($query) => $query->whereNotNull('activated_at'),
         ]);
 
         if (! $authenticated) {

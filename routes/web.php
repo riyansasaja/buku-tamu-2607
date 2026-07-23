@@ -1,12 +1,16 @@
 <?php
 
+use App\Http\Controllers\ActivationController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\PositionController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\VisitController;
 use App\Http\Controllers\Admin\VisitReportController;
 use App\Http\Controllers\Admin\WorkUnitController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\DecisionPageController;
 use App\Http\Controllers\StoreVisitDecisionController;
 use Illuminate\Support\Facades\Route;
@@ -17,10 +21,16 @@ Route::get('/', function () {
 
 Route::get('/decisions/{token}', DecisionPageController::class)->where('token', '[A-Za-z0-9]{64}')->name('decisions.show');
 Route::post('/decisions/{token}', StoreVisitDecisionController::class)->where('token', '[A-Za-z0-9]{64}')->name('decisions.store');
+Route::get('/activate/{token}', [ActivationController::class, 'show'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:20,1')->name('activation.show');
+Route::post('/activate/{token}', [ActivationController::class, 'store'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:10,1')->name('activation.store');
+Route::get('/reset-password/{token}', [ResetPasswordController::class, 'show'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:password-reset-submit')->name('password.reset');
+Route::post('/reset-password/{token}', [ResetPasswordController::class, 'store'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:password-reset-submit')->name('password.update');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])->name('login.store');
+    Route::get('/forgot-password', [ForgotPasswordController::class, 'show'])->name('password.request');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->middleware('throttle:password-reset-request')->name('password.email');
 });
 
 Route::middleware(['auth', 'admin.active'])->group(function (): void {
@@ -35,6 +45,9 @@ Route::middleware(['auth', 'admin.active'])->group(function (): void {
         Route::resource('positions', PositionController::class)->except(['show', 'destroy']);
         Route::patch('positions/{position}/status', [PositionController::class, 'status'])->name('positions.status');
         Route::resource('visits', VisitController::class)->only(['index', 'show']);
+        Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+        Route::patch('users/{user}/status', [UserController::class, 'status'])->name('users.status');
+        Route::post('users/{user}/resend-activation', [UserController::class, 'resend'])->middleware('throttle:5,1')->name('users.resend-activation');
         Route::get('reports/visits.pdf', VisitReportController::class)->name('reports.visits.pdf');
     });
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');

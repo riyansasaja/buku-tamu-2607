@@ -31,7 +31,7 @@
                     </div>
 
                     <div>
-                        <label for="password" class="block text-sm font-semibold text-slate-200">Password</label>
+                        <div class="flex items-center justify-between gap-3"><label for="password" class="block text-sm font-semibold text-slate-200">Password</label><a href="{{ route('password.request') }}" class="text-sm font-semibold text-sky-300 hover:text-sky-200">Lupa password?</a></div>
                         <input id="password" name="password" type="password" required autocomplete="current-password" class="mt-2 block min-h-12 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20" placeholder="Masukkan password">
                         @error('password')
                             <p class="mt-2 text-sm text-rose-300" role="alert">{{ $message }}</p>

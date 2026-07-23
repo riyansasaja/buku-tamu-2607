@@ -36,6 +36,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api-visits', fn (Request $request): Limit => Limit::perMinute((int) config('api.rate_limits.visits'))
             ->by('visits|'.hash('sha256', (string) $request->header('X-Client-Key')).'|'.$request->ip()));
 
+        RateLimiter::for('password-reset-request', fn (Request $request): Limit => Limit::perMinute(3)
+            ->by('reset-request|'.hash('sha256', mb_strtolower(trim((string) $request->input('email')))).'|'.$request->ip()));
+        RateLimiter::for('password-reset-submit', fn (Request $request): Limit => Limit::perMinute(10)
+            ->by('reset-submit|'.hash('sha256', (string) $request->route('token')).'|'.$request->ip()));
+
         Event::listen(VisitRecorded::class, fn (VisitRecorded $event) => SendVisitWhatsApp::dispatch(
             $event->visitId,
             NotificationType::EmployeeArrival,
