@@ -16,7 +16,7 @@ class VisitReportController extends Controller
 {
     public function __invoke(VisitReportRequest $request, VisitReportService $reports): Response
     {
-        $filters = VisitFilters::fromValidated($request->validated(), true);
+        $filters = VisitFilters::fromValidatedForToday($request->validated());
         $report = $reports->data($filters);
         $employee = $filters->employeeId !== null
             ? Employee::query()->select(['id', 'name'])->find($filters->employeeId)

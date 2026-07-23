@@ -4,6 +4,8 @@ use App\Http\Controllers\ActivationController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\PositionController;
+use App\Http\Controllers\Admin\SurveyPdfController;
+use App\Http\Controllers\Admin\SurveyReportController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\VisitController;
 use App\Http\Controllers\Admin\VisitReportController;
@@ -12,7 +14,9 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\DecisionPageController;
+use App\Http\Controllers\StoreSurveyResponseController;
 use App\Http\Controllers\StoreVisitDecisionController;
+use App\Http\Controllers\SurveyPageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -21,6 +25,8 @@ Route::get('/', function () {
 
 Route::get('/decisions/{token}', DecisionPageController::class)->where('token', '[A-Za-z0-9]{64}')->name('decisions.show');
 Route::post('/decisions/{token}', StoreVisitDecisionController::class)->where('token', '[A-Za-z0-9]{64}')->name('decisions.store');
+Route::get('/surveys/{token}', SurveyPageController::class)->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:30,1')->name('surveys.show');
+Route::post('/surveys/{token}', StoreSurveyResponseController::class)->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:10,1')->name('surveys.store');
 Route::get('/activate/{token}', [ActivationController::class, 'show'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:20,1')->name('activation.show');
 Route::post('/activate/{token}', [ActivationController::class, 'store'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:10,1')->name('activation.store');
 Route::get('/reset-password/{token}', [ResetPasswordController::class, 'show'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:password-reset-submit')->name('password.reset');
@@ -44,11 +50,13 @@ Route::middleware(['auth', 'admin.active'])->group(function (): void {
 
         Route::resource('positions', PositionController::class)->except(['show', 'destroy']);
         Route::patch('positions/{position}/status', [PositionController::class, 'status'])->name('positions.status');
-        Route::resource('visits', VisitController::class)->only(['index', 'show']);
+        Route::resource('visits', VisitController::class)->only(['index', 'show'])->middleware('throttle:120,1');
+        Route::get('surveys', SurveyReportController::class)->name('surveys.index');
         Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
         Route::patch('users/{user}/status', [UserController::class, 'status'])->name('users.status');
         Route::post('users/{user}/resend-activation', [UserController::class, 'resend'])->middleware('throttle:5,1')->name('users.resend-activation');
-        Route::get('reports/visits.pdf', VisitReportController::class)->name('reports.visits.pdf');
+        Route::get('reports/visits.pdf', VisitReportController::class)->middleware('throttle:10,1')->name('reports.visits.pdf');
+        Route::get('reports/surveys.pdf', SurveyPdfController::class)->middleware('throttle:10,1')->name('reports.surveys.pdf');
     });
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });

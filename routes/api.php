@@ -11,5 +11,5 @@ Route::prefix('v1')->name('api.v1.')->middleware('api.request-id')->group(functi
         Route::post('visits', [VisitController::class, 'store'])->middleware('throttle:api-visits')->name('visits.store');
     });
 
-    Route::get('visits/{visit}/photo', VisitPhotoController::class)->middleware('signed')->name('visits.photo');
+    Route::get('visits/{visit}/photo', VisitPhotoController::class)->middleware(['signed', 'throttle:60,1'])->name('visits.photo');
 });

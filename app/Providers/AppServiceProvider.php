@@ -9,6 +9,7 @@ use App\Events\VisitDecisionRecorded;
 use App\Events\VisitRecorded;
 use App\Jobs\SendVisitWhatsApp;
 use App\Services\FonnteWhatsAppGateway;
+use App\Services\SurveyInvitationService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
@@ -51,6 +52,9 @@ class AppServiceProvider extends ServiceProvider
                 ? NotificationType::ReceptionAccepted
                 : NotificationType::ReceptionRejected;
             SendVisitWhatsApp::dispatch($event->visitId, $type);
+            if ($event->status === VisitStatus::Accepted) {
+                app(SurveyInvitationService::class)->schedule($event->visitId);
+            }
         });
     }
 }

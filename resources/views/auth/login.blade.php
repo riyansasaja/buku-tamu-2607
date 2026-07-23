@@ -32,7 +32,18 @@
 
                     <div>
                         <div class="flex items-center justify-between gap-3"><label for="password" class="block text-sm font-semibold text-slate-200">Password</label><a href="{{ route('password.request') }}" class="text-sm font-semibold text-sky-300 hover:text-sky-200">Lupa password?</a></div>
-                        <input id="password" name="password" type="password" required autocomplete="current-password" class="mt-2 block min-h-12 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20" placeholder="Masukkan password">
+                        <div class="relative mt-2">
+                            <input id="password" name="password" type="password" required autocomplete="current-password" class="block min-h-12 w-full rounded-xl border border-white/10 bg-slate-950/70 py-3 pl-4 pr-12 text-white outline-none transition placeholder:text-slate-600 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20" placeholder="Masukkan password">
+                            <button type="button" data-password-toggle data-target="password" aria-label="Tampilkan password" aria-pressed="false" class="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-xl text-slate-400 transition hover:text-sky-300 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-sky-300">
+                                <svg data-password-visible="false" viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                                <svg data-password-visible="true" viewBox="0 0 24 24" class="hidden h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="m3 3 18 18M10.6 6.2A10.7 10.7 0 0 1 12 6c6 0 9.5 6 9.5 6a15 15 0 0 1-2.1 2.8M6.6 6.6C4 8.3 2.5 12 2.5 12s3.5 6 9.5 6a9.5 9.5 0 0 0 3.4-.6M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+                                </svg>
+                            </button>
+                        </div>
                         @error('password')
                             <p class="mt-2 text-sm text-rose-300" role="alert">{{ $message }}</p>
                         @enderror

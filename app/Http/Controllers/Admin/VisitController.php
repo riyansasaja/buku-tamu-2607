@@ -30,7 +30,7 @@ class VisitController extends Controller
 
     public function show(Visit $visit): View
     {
-        $visit->load(['employee.workUnit', 'employee.position', 'notificationDeliveries']);
+        $visit->load(['employee.workUnit', 'employee.position', 'notificationDeliveries', 'surveyInvitation', 'surveyResponse']);
         $photoUrl = URL::temporarySignedRoute(
             'api.v1.visits.photo',
             now()->addMinutes((int) config('api.photo_url_minutes')),

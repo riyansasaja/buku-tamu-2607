@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property VisitStatus $status
  * @property Carbon $arrived_at
+ * @property Carbon|null $decided_at
  */
 #[Fillable([
     'visit_number', 'employee_id', 'guest_name', 'address', 'guest_whatsapp', 'visit_purpose',
@@ -44,6 +45,18 @@ class Visit extends Model
     public function notificationDeliveries(): HasMany
     {
         return $this->hasMany(NotificationDelivery::class);
+    }
+
+    /** @return HasOne<SurveyInvitation, $this> */
+    public function surveyInvitation(): HasOne
+    {
+        return $this->hasOne(SurveyInvitation::class);
+    }
+
+    /** @return HasOne<SurveyResponse, $this> */
+    public function surveyResponse(): HasOne
+    {
+        return $this->hasOne(SurveyResponse::class);
     }
 
     /** @return array<string, string> */

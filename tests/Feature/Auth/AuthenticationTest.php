@@ -34,7 +34,10 @@ class AuthenticationTest extends TestCase
             'password' => 'testing-password-12345',
         ]);
 
-        $this->get('/login')->assertOk();
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('data-password-toggle', false)
+            ->assertSee('aria-label="Tampilkan password"', false);
         $previousSessionId = session()->getId();
 
         $this->post('/login', [

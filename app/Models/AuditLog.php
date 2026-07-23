@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
+/** @property array<string, mixed> $metadata */
 #[Fillable(['actor_type', 'action', 'auditable_type', 'auditable_id', 'metadata', 'request_id'])]
 class AuditLog extends Model
 {

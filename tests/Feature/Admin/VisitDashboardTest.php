@@ -27,24 +27,73 @@ class VisitDashboardTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_dashboard_defaults_to_current_makassar_day_and_reconciles_status_counts(): void
+    public function test_dashboard_defaults_to_current_makassar_year_and_reconciles_status_counts(): void
     {
         $admin = User::factory()->admin()->create();
-        Visit::factory()->create(['status' => VisitStatus::Pending, 'arrived_at' => '2026-07-23 00:00:00']);
+        Visit::factory()->create(['status' => VisitStatus::Pending, 'arrived_at' => '2026-01-01 00:00:00']);
         Visit::factory()->create(['status' => VisitStatus::Accepted, 'arrived_at' => '2026-07-23 12:30:00']);
-        Visit::factory()->create(['status' => VisitStatus::Rejected, 'arrived_at' => '2026-07-23 23:59:59']);
-        Visit::factory()->create(['status' => VisitStatus::Accepted, 'arrived_at' => '2026-07-22 23:59:59']);
-        Visit::factory()->create(['status' => VisitStatus::Pending, 'arrived_at' => '2026-07-24 00:00:00']);
+        Visit::factory()->create(['status' => VisitStatus::Rejected, 'arrived_at' => '2026-12-31 23:59:59']);
+        Visit::factory()->create(['status' => VisitStatus::Accepted, 'arrived_at' => '2025-12-31 23:59:59']);
+        Visit::factory()->create(['status' => VisitStatus::Pending, 'arrived_at' => '2027-01-01 00:00:00']);
 
         $response = $this->actingAs($admin)->get(route('admin.dashboard'));
 
         $response->assertOk()
-            ->assertSee('value="2026-07-23"', false)
+            ->assertSee('Akumulasi tahun berjalan 2026')
+            ->assertSee('value="2026-01-01"', false)
+            ->assertSee('value="2026-12-31"', false)
             ->assertSee('data-testid="dashboard-total" class="mt-3 text-4xl font-bold text-white">3</p>', false)
             ->assertSee('data-testid="dashboard-accepted" class="mt-3 text-4xl font-bold text-white">1</p>', false)
             ->assertSee('data-testid="dashboard-rejected" class="mt-3 text-4xl font-bold text-white">1</p>', false)
             ->assertSee('data-testid="dashboard-pending" class="mt-3 text-4xl font-bold text-white">1</p>', false)
-            ->assertSee(route('admin.visits.index', ['date_from' => '2026-07-23', 'date_to' => '2026-07-23', 'status' => 'accepted']));
+            ->assertSee(route('admin.visits.index', ['date_from' => '2026-01-01', 'date_to' => '2026-12-31', 'status' => 'accepted']));
+    }
+
+    public function test_dashboard_rolls_over_to_new_year_on_each_request(): void
+    {
+        $admin = User::factory()->admin()->create();
+        Visit::factory()->create(['guest_name' => 'Tahun Lama', 'arrived_at' => '2026-12-31 23:59:59']);
+        Visit::factory()->create(['guest_name' => 'Tahun Baru', 'arrived_at' => '2027-01-01 00:00:00']);
+
+        Carbon::setTestNow(Carbon::parse('2027-01-01 00:00:01', 'Asia/Makassar'));
+
+        $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk()
+            ->assertSee('Akumulasi tahun berjalan 2027')
+            ->assertSee('value="2027-01-01"', false)
+            ->assertSee('value="2027-12-31"', false)
+            ->assertSee('Tahun Baru')
+            ->assertDontSee('Tahun Lama')
+            ->assertSee('data-testid="dashboard-total" class="mt-3 text-4xl font-bold text-white">1</p>', false);
+    }
+
+    public function test_explicit_historical_period_overrides_current_year_default(): void
+    {
+        $admin = User::factory()->admin()->create();
+        Visit::factory()->create(['guest_name' => 'Historis 2025', 'arrived_at' => '2025-05-10 08:00:00']);
+        Visit::factory()->create(['guest_name' => 'Aktif 2026', 'arrived_at' => '2026-05-10 08:00:00']);
+        $query = ['date_from' => '2025-01-01', 'date_to' => '2025-12-31'];
+
+        $this->actingAs($admin)->get(route('admin.dashboard', $query))->assertOk()
+            ->assertSee('Periode khusus')
+            ->assertSee('Historis 2025')
+            ->assertDontSee('Aktif 2026')
+            ->assertSee(route('admin.visits.index', [...$query, 'status' => 'accepted']))
+            ->assertSee('data-testid="dashboard-total" class="mt-3 text-4xl font-bold text-white">1</p>', false);
+    }
+
+    public function test_full_leap_year_is_allowed_but_more_than_366_inclusive_dates_is_rejected(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->get(route('admin.dashboard', [
+            'date_from' => '2024-01-01',
+            'date_to' => '2024-12-31',
+        ]))->assertOk()->assertSee('Periode khusus');
+
+        $this->actingAs($admin)->from(route('admin.dashboard'))->get(route('admin.dashboard', [
+            'date_from' => '2024-01-01',
+            'date_to' => '2025-01-01',
+        ]))->assertRedirect(route('admin.dashboard'))->assertSessionHasErrors('date_to');
     }
 
     public function test_dashboard_and_visit_list_use_identical_inclusive_period(): void

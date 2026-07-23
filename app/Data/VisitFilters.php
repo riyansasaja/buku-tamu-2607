@@ -17,12 +17,34 @@ readonly class VisitFilters
     ) {}
 
     /** @param array<string, mixed> $validated */
-    public static function fromValidated(array $validated, bool $defaultToday = false): self
+    public static function fromValidated(array $validated): self
+    {
+        return self::make($validated);
+    }
+
+    /** @param array<string, mixed> $validated */
+    public static function fromValidatedForToday(array $validated): self
+    {
+        $today = CarbonImmutable::now('Asia/Makassar')->format('Y-m-d');
+
+        return self::make($validated, $today, $today);
+    }
+
+    /** @param array<string, mixed> $validated */
+    public static function fromValidatedForCurrentYear(array $validated): self
+    {
+        $now = CarbonImmutable::now('Asia/Makassar');
+
+        return self::make($validated, $now->startOfYear()->format('Y-m-d'), $now->endOfYear()->format('Y-m-d'));
+    }
+
+    /** @param array<string, mixed> $validated */
+    private static function make(array $validated, ?string $defaultFrom = null, ?string $defaultTo = null): self
     {
         $timezone = 'Asia/Makassar';
-        $today = CarbonImmutable::now($timezone)->format('Y-m-d');
-        $fromDate = $validated['date_from'] ?? ($defaultToday ? $today : null);
-        $toDate = $validated['date_to'] ?? ($defaultToday ? $today : null);
+        $hasExplicitPeriod = isset($validated['date_from']) || isset($validated['date_to']);
+        $fromDate = $validated['date_from'] ?? ($hasExplicitPeriod ? null : $defaultFrom);
+        $toDate = $validated['date_to'] ?? ($hasExplicitPeriod ? null : $defaultTo);
         $search = isset($validated['q']) ? trim((string) $validated['q']) : null;
 
         return new self(

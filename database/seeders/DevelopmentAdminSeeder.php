@@ -5,6 +5,8 @@ namespace Database\Seeders;
 use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 class DevelopmentAdminSeeder extends Seeder
 {
@@ -25,16 +27,21 @@ class DevelopmentAdminSeeder extends Seeder
             return;
         }
 
-        User::query()->updateOrCreate(
+        $user = User::query()->updateOrCreate(
             ['email' => mb_strtolower(trim($admin['email']))],
             [
                 'name' => trim($admin['name']),
                 'password' => $admin['password'],
                 'role' => UserRole::Admin,
                 'is_active' => true,
+                'activated_at' => now(),
             ],
         );
 
-        $this->command?->info('Development admin berhasil disiapkan.');
+        if (! Hash::check($admin['password'], $user->password)) {
+            throw new RuntimeException('Password development admin gagal diverifikasi setelah disimpan.');
+        }
+
+        $this->command?->info('Development admin aktif dan password berhasil diverifikasi.');
     }
 }

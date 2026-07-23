@@ -9,6 +9,9 @@
                 <p class="text-sm font-semibold uppercase tracking-[0.18em] text-sky-300">Ringkasan pelayanan</p>
                 <h1 class="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">Dashboard Kunjungan</h1>
                 <p class="mt-3 text-slate-300">Selamat datang, <span class="font-semibold text-white">{{ auth()->user()->name }}</span>.</p>
+                <p class="mt-2 inline-flex rounded-full border border-sky-300/20 bg-sky-300/10 px-3 py-1 text-sm font-semibold text-sky-200">
+                    {{ $usesCurrentYearDefault ? 'Akumulasi tahun berjalan '.$filters->from?->year : 'Periode khusus' }}
+                </p>
                 <p class="mt-1 text-sm text-slate-400">Seluruh waktu dan batas tanggal menggunakan zona waktu Asia/Makassar.</p>
             </div>
             <form method="GET" class="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:grid-cols-[1fr_1fr_auto]">

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Rules\SecureImage;
 use App\Support\WhatsAppNumber;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
@@ -44,6 +45,7 @@ class StoreVisitRequest extends FormRequest
                 'required',
                 File::image()->types(['jpg', 'jpeg', 'png', 'webp'])->max(5 * 1024),
                 'mimetypes:image/jpeg,image/png,image/webp',
+                new SecureImage,
                 function (string $attribute, mixed $value, Closure $fail): void {
                     if (! $value instanceof UploadedFile || @getimagesize($value->getRealPath()) === false) {
                         $fail('Foto harus berupa gambar JPEG, PNG, atau WebP yang valid.');

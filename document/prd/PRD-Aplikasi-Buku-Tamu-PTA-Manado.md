@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Status dokumen | Draft v1.2 — alur WhatsApp dan survei dikonfirmasi |
+| Status dokumen | Draft v1.3 — rekap dan laporan PDF survei dikonfirmasi |
 | Tanggal penyusunan | 22 Juli 2026 |
 | Pemilik produk | PTA Manado |
 | Target MVP | 5 Agustus 2026 |
@@ -22,7 +22,7 @@ PTA Manado membutuhkan pencatatan terpusat untuk mendokumentasikan tamu yang dat
 
 #### Proposed Solution
 
-Membangun aplikasi buku tamu single-tenant untuk satu kantor, terdiri dari REST API Laravel untuk aplikasi kiosk pada tablet, halaman keputusan terbatas bagi pegawai, halaman survei terbatas bagi tamu, dan web admin responsif. Sistem mencatat kunjungan beserta nomor WhatsApp tamu, mengirim pemberitahuan melalui Fonnte API kepada pegawai tujuan, memfasilitasi keputusan melalui tautan sekali pakai, mengirim hasil keputusan kepada petugas, lalu mengirim survei kepuasan sekali pakai kepada tamu tiga jam setelah kunjungan diterima.
+Membangun aplikasi buku tamu single-tenant untuk satu kantor, terdiri dari REST API Laravel untuk aplikasi kiosk pada tablet, halaman keputusan terbatas bagi pegawai, halaman survei terbatas bagi tamu, dan web admin responsif. Sistem mencatat kunjungan beserta nomor WhatsApp tamu, mengirim pemberitahuan melalui Fonnte API kepada pegawai tujuan, memfasilitasi keputusan melalui tautan sekali pakai, mengirim hasil keputusan kepada petugas, lalu mengirim survei kepuasan sekali pakai kepada tamu tiga jam setelah kunjungan diterima. Admin dapat mengevaluasi hasil survei yang terhubung dengan identitas kunjungan dan mengekspor rekap terfilter ke PDF.
 
 Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfigurasi terpisah; satu instalasi hanya melayani satu kantor dan tidak memerlukan fitur multi-tenant.
 
@@ -32,6 +32,7 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 - Dashboard dan laporan menampilkan jumlah total, diterima, ditolak, dan belum diputuskan (`pending`) dengan hasil yang sama dengan data kunjungan pada database.
 - Sekurang-kurangnya 95% pekerjaan pengiriman notifikasi diproses oleh antrean dalam waktu 60 detik setelah kunjungan tersimpan, diukur dari log aplikasi; keberhasilan sampai ke perangkat bergantung pada penyedia eksternal.
 - 100% kunjungan yang diterima menjadwalkan satu survei untuk dikirim tiga jam setelah waktu keputusan, tanpa mengirim survei kepada kunjungan yang ditolak.
+- Ringkasan, distribusi rating, tingkat respons, dan detail laporan survei menghasilkan jumlah yang sama dengan data survei berdasarkan filter identik.
 - Sekurang-kurangnya 95% permintaan API non-unggah selesai dalam waktu kurang dari 500 ms pada persentil ke-95, dengan beban acuan 50 pengguna bersamaan dan maksimum 100.000 data kunjungan.
 - MVP dapat diuji oleh pengguna pada 5 Agustus 2026 dan versi operasional dapat digunakan pada 22 September 2026.
 
@@ -53,7 +54,7 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 | Tamu | Mencatat kunjungan dan memberi umpan balik pelayanan | Mengisi data pada tablet, lalu mengisi satu survei kepuasan dari tautan WhatsApp setelah kunjungan diterima |
 | Petugas penerima tamu | Mengetahui hasil keputusan agar dapat mengarahkan tamu | Menerima pemberitahuan hasil keputusan melalui WhatsApp kantor |
 | Pegawai tujuan | Mengetahui kedatangan dan memberi keputusan tanpa memasang aplikasi | Membuka tautan rahasia dari WhatsApp, melihat satu kunjungan, lalu menerima atau menolak |
-| Admin | Mengawasi kunjungan dan mengelola data master | Dashboard, data kunjungan, laporan, user admin, dan pegawai |
+| Admin | Mengawasi kunjungan, mengevaluasi kepuasan, dan mengelola data master | Dashboard, data kunjungan, rekap survei, laporan PDF, user admin, dan pegawai |
 
 #### User Flow
 
@@ -69,7 +70,8 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 10. Untuk kunjungan `accepted`, sistem menjadwalkan pengiriman WhatsApp survei kepada tamu tepat tiga jam setelah waktu keputusan. Kunjungan `rejected` tidak menerima survei.
 11. Tamu membuka tautan survei sekali pakai, memilih rating bintang 1–5, dan dapat mengisi komentar/saran.
 12. Setelah respons tersimpan, token survei tidak dapat digunakan kembali dan halaman tidak lagi menerima jawaban.
-13. Admin memantau agregat di dashboard, menelusuri data, dan mengekspor laporan PDF.
+13. Admin memantau agregat di dashboard, menelusuri data, dan mengekspor laporan kunjungan PDF.
+14. Admin membuka rekap survei, memfilter hasil berdasarkan periode, rating, pegawai, unit kerja, atau status respons, lalu mengekspor hasil identik ke PDF untuk evaluasi pelayanan.
 
 #### User Stories & Acceptance Criteria
 
@@ -175,7 +177,7 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 **Acceptance Criteria:**
 
 - Dashboard menampilkan jumlah total kunjungan, diterima, ditolak, dan belum diputuskan (`pending`).
-- Data default menggunakan tanggal hari berjalan pada zona waktu `Asia/Makassar`.
+- Data default menggunakan tahun kalender berjalan pada zona waktu `Asia/Makassar`; filter eksplisit dapat menampilkan periode sebelumnya.
 - Admin dapat memilih rentang tanggal; seluruh kartu menggunakan rentang yang sama.
 - Nilai pada kartu dapat ditelusuri ke daftar kunjungan dengan filter yang sesuai.
 - Halaman responsif pada lebar viewport minimum 360 px dan desktop 1.280 px tanpa scroll horizontal pada konten utama.
@@ -192,6 +194,28 @@ Aplikasi harus dapat direplikasi untuk kantor lain melalui deployment dan konfig
 - Jumlah ringkasan sama dengan jumlah detail berdasarkan filter yang sama.
 - Dokumen menggunakan ukuran A4, memiliki nomor halaman, dan dapat dibuka oleh pembaca PDF standar.
 - Hanya admin terautentikasi yang dapat membuat laporan; aktivitas ekspor dicatat.
+
+##### US-08A — Merekap dan mengekspor hasil survei
+
+**User Story:** Sebagai admin, saya ingin melihat dan mengekspor rekap hasil survei beserta identitas kunjungan agar dapat mengevaluasi mutu pelayanan dan melakukan tindak lanjut yang relevan.
+
+**Acceptance Criteria:**
+
+- Halaman rekap hanya dapat diakses admin aktif dan menampilkan total survei terkirim, jumlah respons, tingkat respons, rata-rata rating, serta distribusi rating 1–5.
+- Admin dapat memfilter berdasarkan rentang tanggal kunjungan, rating 1–5, pegawai tujuan, unit kerja, dan status respons `responded` atau `not_responded`.
+- Tabel detail memuat nomor kunjungan, tanggal kunjungan, nama tamu, alamat, pegawai dan unit tujuan, status survei, rating, komentar/saran, serta waktu respons bila tersedia.
+- Filter menggunakan zona waktu `Asia/Makassar`, batas tanggal inklusif, pagination, dan query yang sama untuk ringkasan, detail, serta PDF.
+- PDF memuat identitas kantor, filter/periode, waktu pembuatan, ringkasan metrik, distribusi rating, dan tabel detail hasil survei; foto dan nomor WhatsApp tidak disertakan.
+- Hasil PDF harus sama dengan rekap web untuk filter identik, menggunakan A4, nomor halaman, header/footer, dan penanganan page break untuk komentar panjang.
+- Ekspor PDF hanya dapat dilakukan admin aktif, dikenai rate limit, dan dicatat dalam audit log tanpa menyimpan isi komentar, alamat, atau identitas tamu pada metadata audit.
+- Tampilan web responsif pada viewport 360–1.280 px, menyediakan empty state, dan tidak menampilkan data di luar filter.
+- Data survei mengikuti retensi kunjungan tiga tahun dan terhapus bersama kunjungan terkait.
+
+**Non-Goals:**
+
+- Mengubah atau menghapus jawaban survei melalui halaman rekap.
+- Mengirim tindak lanjut otomatis berdasarkan rating rendah.
+- Analisis sentimen, klasifikasi komentar berbasis AI, atau perbandingan lintas-instansi.
 
 ##### US-09 — Mengelola user admin
 
@@ -311,8 +335,8 @@ Halaman Keputusan ───┘
 | `employees` | id, employee_no nullable, name, position, unit, whatsapp_number encrypted, is_active, timestamps | Master pegawai tujuan dan nomor penerima WhatsApp; soft delete atau nonaktif |
 | `visits` | id, visit_number, guest_name, address, guest_whatsapp encrypted, employee_id, purpose, photo_path, status, reason nullable, decided_at nullable, created_at, updated_at | Status aktif MVP: pending, accepted, rejected |
 | `visit_decision_tokens` | id, visit_id unique, token_hash unique, revoked_at nullable, used_at nullable, timestamps | Token asli hanya dikirim melalui link WhatsApp dan tidak disimpan dalam bentuk teks asli |
-| `survey_tokens` | id, visit_id unique, token_hash unique, scheduled_at, sent_at nullable, revoked_at nullable, used_at nullable, timestamps | Hanya untuk kunjungan accepted; token asli tidak disimpan |
-| `survey_responses` | id, visit_id unique, rating, comment nullable, submitted_at, timestamps | Rating integer 1–5; satu respons per kunjungan |
+| `survey_invitations` | id, visit_id unique, token_hash unique nullable, status, scheduled_at, sent_at nullable, revoked_at nullable, used_at nullable, timestamps | Hanya untuk kunjungan accepted; token asli tidak disimpan; status scheduled/sent/used/revoked |
+| `survey_responses` | id, survey_invitation_id unique, visit_id unique, rating, comment nullable, submitted_at, timestamps | Rating integer 1–5; satu respons per kunjungan |
 | `notification_deliveries` | id, visit_id, employee_id, channel, provider_message_id nullable, status, attempts, last_attempt_at, error_message nullable, timestamps | Audit teknis pengiriman |
 | `audit_logs` | id, actor_id nullable, action, auditable_type, auditable_id, metadata JSON, ip_address, created_at | Tidak menyimpan password/token/isi foto |
 | `password_reset_tokens` | email, token, created_at | Mengikuti mekanisme Laravel |
@@ -345,6 +369,8 @@ Base path: `/api/v1`. Format respons: JSON. Semua tanggal menggunakan ISO 8601 d
 | `POST` | `/auth/reset-password` | Menetapkan password baru | Token reset valid |
 | `GET` | `/admin/dashboard` | Agregat dashboard | Admin |
 | `GET` | `/admin/reports/visits.pdf` | Laporan PDF | Admin |
+| `GET` | `/admin/surveys` | Rekap dan detail hasil survei | Admin |
+| `GET` | `/admin/reports/surveys.pdf` | Laporan PDF hasil survei | Admin, rate-limited dan diaudit |
 | CRUD | `/admin/users` | Manajemen admin | Admin |
 | CRUD | `/admin/employees` | Manajemen pegawai | Admin |
 
@@ -383,6 +409,7 @@ Ketentuan kontrak:
 - Terapkan role-based access pada web admin. Halaman keputusan wajib memverifikasi token rahasia dan status `pending` tanpa menerima `visit_id` dari client sebagai sumber otorisasi.
 - Jangan menyimpan token keputusan asli di database atau log. Respons untuk token salah, sudah dipakai, dan dicabut tidak boleh mengungkapkan identitas tamu.
 - Jangan menyimpan token survei asli atau isi komentar dalam log. Nomor tamu hanya boleh digunakan untuk komunikasi terkait kunjungan dan survei yang ditentukan PRD.
+- Rekap survei dapat menampilkan identitas tamu hanya kepada admin aktif untuk kebutuhan evaluasi. PDF tidak memuat foto atau nomor WhatsApp, dan aktivitas ekspor dicatat tanpa menyalin identitas, alamat, atau komentar ke metadata audit.
 - Nomor WhatsApp pegawai dan tamu dienkripsi at rest menggunakan mekanisme aplikasi; secret provider hanya berada di environment/secret manager.
 - Foto dan alamat diperlakukan sebagai data pribadi, tidak dimasukkan ke log aplikasi, analytics, atau payload notifikasi secara lengkap.
 - Batasi MIME berdasarkan inspeksi server, ubah nama file menjadi identifier acak, dan tolak executable/polyglot yang terdeteksi. Antivirus scanning dipertimbangkan untuk rilis operasional.
@@ -412,7 +439,7 @@ Ketentuan kontrak:
 - **Integration test:** sandbox Fonnte, delayed survey job tiga jam, queue retry/failure, storage privat, email reset, dan database migration.
 - **Security test:** CSRF, substitusi token/IDOR, replay keputusan/survei, brute-force rate limit, file upload berbahaya, akses signed URL kedaluwarsa, serta kebocoran field sensitif/token.
 - **Performance test:** 50 pengguna bersamaan, dataset 100.000 kunjungan, dengan hasil p95 dibandingkan target NFR.
-- **PDF test:** verifikasi filter dan total secara otomatis, lalu pemeriksaan visual sampel laporan panjang, karakter Indonesia, page break, header, dan footer.
+- **PDF test:** verifikasi filter, agregasi, distribusi rating, tingkat respons, dan total secara otomatis, lalu pemeriksaan visual sampel laporan panjang, komentar hingga 1.000 karakter, karakter Indonesia, page break, header, dan footer.
 - **Responsive test:** viewport 360/768/1024/1280 px dan navigasi keyboard pada halaman login, dashboard, kunjungan, pegawai, user, dan laporan.
 - **Backup restore drill:** sekurang-kurangnya satu kali sebelum produksi untuk membuktikan backup database dan foto dapat dipulihkan.
 - **UAT:** admin, petugas penerima, dan minimal tiga pegawai menjalankan skenario end-to-end; tidak ada defect Severity 1/2 yang terbuka saat go-live.
@@ -443,7 +470,7 @@ Ketentuan kontrak:
 ##### v1.1 / Production Hardening — 6 Agustus–22 September 2026
 
 - Menyelesaikan forgot password dan manajemen user melalui web.
-- Menambahkan survei kepuasan sekali pakai, pengiriman tertunda tiga jam, dan ringkasan hasil survei.
+- Menambahkan survei kepuasan sekali pakai, pengiriman tertunda tiga jam, rekap hasil survei beridentitas, filter evaluasi, dan ekspor PDF survei.
 - Mematangkan laporan PDF, filter dashboard, audit log, retry/monitoring notifikasi, dan responsive/accessibility QA.
 - Melakukan performance test, security test, backup restore drill, pelatihan admin, migrasi konfigurasi produksi, dan UAT final.
 - Go-live bertahap: pilot internal 3–5 hari, evaluasi, lalu penggunaan kantor penuh paling lambat 22 September 2026.
@@ -468,6 +495,7 @@ Ketentuan kontrak:
 | Layanan notifikasi eksternal gagal atau lambat | Sedang | Sedang | Queue, retry bertingkat, failure log, alert, dan status delivery pada admin |
 | Data pribadi terekspos melalui URL/log/PDF | Sedang | Tinggi | Storage privat, signed URL, redaksi log/payload, RBAC, audit ekspor, dan minimisasi PDF |
 | Data dashboard dan PDF tidak konsisten | Sedang | Tinggi | Satu service/query filter bersama dan automated reconciliation tests |
+| Identitas atau komentar survei terekspos melalui PDF/log | Sedang | Tinggi | RBAC admin aktif, minimisasi kolom PDF, audit ekspor tersanitasi, rate limit, dan larangan mencatat isi komentar/identitas pada log |
 | Replikasi kantor menghasilkan konfigurasi tidak konsisten | Sedang | Sedang | Environment template, deployment checklist, seeder konfigurasi kantor, dan versioned migrations |
 | Kehilangan data akibat kegagalan server | Rendah–sedang | Tinggi | Backup harian database+foto, restore drill, monitoring backup, dan prosedur insiden |
 
@@ -505,8 +533,8 @@ Ketentuan kontrak:
 | Kunjungan terdokumentasi | `visits` dan audit request | Harian | Jumlah record valid dibanding transaksi sukses client |
 | Distribusi status | `visits.status` | Harian/bulanan | Count per status dalam periode dan zona waktu yang sama |
 | Kecepatan pemrosesan notifikasi | `notification_deliveries` + queue metrics | Harian | Selisih `visits.created_at` dengan waktu percobaan pertama; hitung p95 dan persentase <60 detik |
-| Ketepatan jadwal survei | `survey_tokens`, delivery log, dan queue metrics | Harian | Persentase survei accepted yang dikirim pada jendela 3 jam ±5 menit dari `decided_at`; target ≥95% |
-| Respons survei | `survey_responses` | Mingguan/bulanan | Jumlah respons valid dibagi survei yang berhasil dikirim; rating rata-rata dilaporkan tanpa mengubah data mentah |
+| Ketepatan jadwal survei | `survey_invitations`, delivery log, dan queue metrics | Harian | Persentase survei accepted yang dikirim pada jendela 3 jam ±5 menit dari `decided_at`; target ≥95% |
+| Respons survei | `survey_invitations` + `survey_responses` | Mingguan/bulanan | Jumlah respons valid dibagi survei yang berhasil dikirim; laporkan tingkat respons, rata-rata, dan distribusi rating 1–5 tanpa mengubah data mentah |
 | Latensi API | APM/structured log | Harian | p95 durasi endpoint, pisahkan upload dan non-upload |
 | Konsistensi laporan | Test suite + rekonsiliasi | Setiap rilis | Total dashboard/PDF harus sama dengan query detail untuk filter identik |
 

@@ -17,11 +17,13 @@ class DashboardController extends Controller
         VisitDashboardService $dashboard,
         VisitFilterService $filterService,
     ): View {
-        $filters = VisitFilters::fromValidated($request->safe()->only(['date_from', 'date_to']), true);
+        $validatedPeriod = $request->safe()->only(['date_from', 'date_to']);
+        $usesCurrentYearDefault = ! $request->filled('date_from') && ! $request->filled('date_to');
+        $filters = VisitFilters::fromValidatedForCurrentYear($validatedPeriod);
         $summary = $dashboard->summary($filters);
         $recentVisits = $filterService->apply(Visit::query()->with('employee'), $filters, false)
             ->latest('arrived_at')->limit(5)->get();
 
-        return view('admin.dashboard', compact('filters', 'summary', 'recentVisits'));
+        return view('admin.dashboard', compact('filters', 'summary', 'recentVisits', 'usesCurrentYearDefault'));
     }
 }

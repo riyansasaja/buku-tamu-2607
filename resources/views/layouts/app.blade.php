@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Administrasi Buku Tamu PTA Manado.">
     <title>@yield('title', config('app.name'))</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link rel="stylesheet" href="{{ \App\Support\BuiltAsset::url('resources/css/app.css') }}">
+    <script type="module" src="{{ \App\Support\BuiltAsset::url('resources/js/app.js') }}" defer></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
     <div class="relative isolate min-h-screen overflow-hidden">
@@ -32,6 +33,7 @@
                         @foreach ([
                             ['admin.dashboard', 'Dashboard', 'admin.dashboard'],
                             ['admin.visits.index', 'Kunjungan', 'admin.visits.*'],
+                            ['admin.surveys.index', 'Survei', 'admin.surveys.*'],
                             ['admin.employees.index', 'Pegawai', 'admin.employees.*'],
                             ['admin.work-units.index', 'Unit Kerja', 'admin.work-units.*'],
                             ['admin.positions.index', 'Jabatan', 'admin.positions.*'],

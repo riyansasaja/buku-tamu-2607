@@ -35,5 +35,20 @@
                 @endforelse
             </div>
         </section>
+
+        <section class="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+            <h2 class="text-xl font-bold text-white">Survei Kepuasan</h2>
+            @if ($visit->surveyResponse)
+                <div class="mt-5 grid gap-5 sm:grid-cols-2">
+                    <div><p class="text-xs uppercase tracking-wider text-slate-500">Rating</p><p class="mt-2 text-2xl text-amber-300" aria-label="{{ $visit->surveyResponse->rating }} dari 5 bintang">{{ str_repeat('★', $visit->surveyResponse->rating) }}<span class="text-slate-700">{{ str_repeat('★', 5 - $visit->surveyResponse->rating) }}</span></p></div>
+                    <div><p class="text-xs uppercase tracking-wider text-slate-500">Dikirim</p><p class="mt-2 text-slate-200">{{ $visit->surveyResponse->submitted_at->timezone('Asia/Makassar')->format('d-m-Y H:i') }} WITA</p></div>
+                    <div class="sm:col-span-2"><p class="text-xs uppercase tracking-wider text-slate-500">Komentar / saran</p><p class="mt-2 whitespace-pre-line text-slate-200">{{ $visit->surveyResponse->comment ?: 'Tidak ada komentar.' }}</p></div>
+                </div>
+            @elseif ($visit->surveyInvitation)
+                <p class="mt-4 text-slate-300">Status: <span class="font-semibold text-sky-200">{{ strtoupper($visit->surveyInvitation->status->value) }}</span></p>
+            @else
+                <p class="mt-4 text-slate-400">Survei hanya dijadwalkan untuk kunjungan yang diterima.</p>
+            @endif
+        </section>
     </div>
 @endsection
